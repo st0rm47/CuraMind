@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"  # Version of the application
     DATABASE_URL: str  # Database connection URL, loaded from environment variable
     
+    SECRET_KEY: str  # Secret key for security-related operations, loaded from environment variable
+    ALGORITHM: str = "HS256"  # Algorithm used for token encoding (e.g., JWT)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120  # Token expiration time in minutes
+    
     class Config:
         env_file = ".env"  # Load environment variables from the .env file
         
