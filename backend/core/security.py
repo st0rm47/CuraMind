@@ -22,10 +22,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 #JWT token generation function
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(subject: str, expires_delta: Optional[timedelta] = None):
     # Creates a JWT access token with the provided data and expiration time.
-    to_encode = data.copy()
-    
+    to_encode = {"sub": subject}
+
     # Set the expiration time for the token. If expires_delta is provided, use it; otherwise, use the default expiration time from settings.
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -33,7 +33,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + timedelta(minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     # Add the expiration time to the token payload
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire,
+        "iat": datetime.now(timezone.utc)
+        })
     
     # Encode the token using the secret key and algorithm specified in settings
     encoded_jwt = jwt.encode(
@@ -44,3 +47,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     
     return encoded_jwt
 
+
+# JWT token decoding function
+def decode_access_token(token: str):
+    # Decodes a JWT access token and returns the payload if the token is valid.
+    try:
+        payload = jwt.decode(
+            token, 
+            settings.SECRET_KEY, 
+            algorithms=[settings.ALGORITHM]
+        )
+        return payload
+    except JWTError:
+        return None
