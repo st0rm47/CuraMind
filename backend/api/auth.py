@@ -1,13 +1,15 @@
 # This file contains api routes related to user authentication, such as registration and login.
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
+from api.deps import get_current_user
 from models.user import User
 from db.session import get_db
 from core.security import hash_password, verify_password, create_access_token
-from schemas.auth import UserCreate
+from schemas.auth import UserCreate, UserLogin
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -25,8 +27,11 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
     new_user = User(
         name=user.name,
         email=user.email,
-        password=hash_password(user.password),  # Hash the password before storing
-        role=user.role
+        hashed_password=hash_password(user.password),  # Hash the password before storing
+        role=user.role,
+        dob=user.dob,
+        gender=user.gender,
+        phone=user.phone
     )
 
     # Add the new user to the database session and commit the transaction
@@ -40,33 +45,41 @@ async def register(user: UserCreate, db: AsyncSession = Depends(get_db)):
     }
 
 @router.post("/login")
-async def login(user: UserCreate, db: AsyncSession = Depends(get_db)):
+async def login(user:OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     
     # Retrieve the user from the database based on the provided email
     result = await db.execute(
-        select(User).where(User.email == user.email)
+        select(User).where(User.email == user.username)
     )
     db_user = result.scalar_one_or_none()
 
     # If the user does not exist, raise an HTTP 401 Unauthorized error
     if not db_user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid email or password"
+        )
 
     # Verify the provided password against the stored hashed password
-    if not verify_password(user.password, db_user.password):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(
+            status_code=401, 
+            detail="Invalid email or password"
+        )
 
     # Create a JWT access token for the authenticated user
-    token = create_access_token(data={
-        "sub": db_user.email, 
-        "user_id": db_user.id, 
-        "role": db_user.role
-        })
-    
-    
+    token = create_access_token(str(db_user.id))
+
     # If authentication is successful, return a success message 
     return {
-        "message": "Login successful",
         "access_token": token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+    }
+    
+@router.get("/me")
+async def me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "name": current_user.name,
+        "role": current_user.role
     }
