@@ -25,15 +25,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        email = decode_access_token(token)
-        if email is None:
+        payload = decode_access_token(token)
+        if payload is None:
+            raise credentials_exception
+        
+        user_id = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    # Query the database to get the user based on the email from the token payload
-    result = await db.execute(select(user.User).where(user.User.email == email))
-    current_user = result.scalars().first()
+    # Query the database to get the user based on the ID from the token payload
+    result = await db.execute(select(user.User).where(user.User.id == user_id))
+    current_user = result.scalar_one_or_none()
     
     if current_user is None:
         raise credentials_exception
@@ -51,6 +55,5 @@ def require_role(required_role: str):
     return role_dependency
 
 # Example usage of the require_role dependency for an admin-only route
-require_admin = require_role("admin")
-require_user = require_role("user")
+require_patient = require_role("patient")
 require_doctor = require_role("doctor")
