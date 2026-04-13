@@ -1,5 +1,6 @@
 # This file contains the User model for the database
 # It defines the User class, which inherits from the Base class provided by SQLAlchemy.
+# The User model represents a user in the system, which can be either a patient or a doctor.
 
 import uuid
 from datetime import datetime, timezone
