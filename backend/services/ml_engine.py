@@ -1,11 +1,12 @@
-def predict_disease_risk(data: dict):
-    """
-    Dummy ML model (we will replace with real ML later)
-    """
+def run_prediction(data):
+
+    if hasattr(data, "model_dump"):
+        data = data.model_dump()
+    elif hasattr(data, "dict"):
+        data = data.dict()
 
     score = 0
 
-    # Example logic (you will replace later with sklearn model)
     if data.get("fever"):
         score += 30
     if data.get("cough"):
@@ -16,13 +17,18 @@ def predict_disease_risk(data: dict):
         score += 15
 
     if score > 70:
-        risk = "High"
+        risk = "high"
+        prediction = "severe_risk_condition"
     elif score > 40:
-        risk = "Medium"
+        risk = "medium"
+        prediction = "moderate_risk_condition"
     else:
-        risk = "Low"
+        risk = "low"
+        prediction = "normal"
 
     return {
+        "prediction": prediction,   # ✅ REQUIRED FIX
         "risk_score": score,
-        "risk_level": risk
+        "risk_level": risk,
+        "model_used": "rule_based_v1"
     }
