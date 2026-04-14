@@ -18,6 +18,7 @@ class FollowUp(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)
 
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("Users.id"))
+    assessment_id: Mapped[str] = mapped_column(String(36), ForeignKey("Assessments.id"))
 
     message: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(50), default="pending")
