@@ -55,7 +55,6 @@ async def assess_health(
             type = "new assessment",
             title = "New Patient Assessment",
             message=f"New assessment submitted by {user.name} with risk level {ml_result['risk_level']}.",
-            related_assessment_id=assessment.id
         )
         db.add(notification)
     
