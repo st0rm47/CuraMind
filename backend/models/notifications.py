@@ -25,3 +25,4 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(SAEnum("assessment", "followup", name="notification_type"), nullable=False)  # Type of notification (e.g., assessment, follow-up)
     
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))  # Timestamp when the notification was created
+    is_read: Mapped[bool] = mapped_column(default=False)  # Flag to indicate if the notification has been read by the user
