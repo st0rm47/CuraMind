@@ -25,4 +25,6 @@ class Assessment(Base):
     risk_level: Mapped[str] = mapped_column(SAEnum("low", "medium", "high", name="risk_level"), nullable=False)  # Risk level associated with the prediction
     
     created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))  # Timestamp when the assessment was created
-    
+    doctor_id: Mapped[str] = mapped_column(String(36), nullable=True)
+    doctor_notes: Mapped[str] = mapped_column(String(255), nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="pending")
