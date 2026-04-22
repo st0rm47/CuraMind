@@ -3,15 +3,16 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
-from api.deps import get_current_user, require_doctor
+from api.deps import require_doctor
 from db.session import get_db
 from models.user import User
-from models.assessment import Assessment
+from models.reports import Report
 from models.notifications import Notification
 from models.doctor_review import DoctorReview
-from schemas.doctor import DoctorReviewRequest, DoctorReviewResponse, DoctorQueueResponse, AssessmentItem   
+from schemas.doctor import DoctorReviewRequest
 
 router = APIRouter(prefix="/doctor", tags=["Doctor"])
 
@@ -19,129 +20,205 @@ router = APIRouter(prefix="/doctor", tags=["Doctor"])
 @router.get("/queue")
 async def patient_queue(
     db: AsyncSession = Depends(get_db),
-    doctor: User = Depends(require_doctor)
+    user: User = Depends(require_doctor),
+    status_filter: str = "all",   
+    page: int = 1,
+    limit: int = 30,
 ):
-    # Get recent assessments for this doctor (for simplicity, we get all assessments)
-    result = await db.execute(
-        select(Assessment)
-        .where(Assessment.status == "pending")
-        .order_by(Assessment.created_at.desc())
+    """All patient assessments, newest first, with optional status filter."""
+    offset = (page - 1) * limit
+
+    # Build the base query to fetch assessments with related patient and doctor review data
+    query = select(Report).options(
+        selectinload(Report.patient),
+        selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
+        selectinload(Report.follow_ups),
     )
-    
+
+    # Apply status filter to the query if specified (e.g., pending_review, reviewed, archived)
+    if status_filter in ("pending_review", "reviewed", "archived"):
+        query = query.where(Report.status == status_filter)
+
+    # Count total assessments for pagination metadata
+    count_q = select(func.count(Report.id))
+    if status_filter in ("pending_review", "reviewed", "archived"):
+        count_q = count_q.where(Report.status == status_filter)
+
+    total = (await db.execute(count_q)).scalar()
+
+    result = await db.execute(
+        query.order_by(Report.created_at.desc()).offset(offset).limit(limit)
+    )
     assessments = result.scalars().all()
 
-    return DoctorQueueResponse(
-        count=len(assessments),
-        items=[
-            AssessmentItem(
-                id=a.id,
-                patient_id=a.patient_id,
-                prediction=a.prediction,
-                risk_level=a.risk_level,
-                created_at=str(a.created_at)
-            )
-            for a in assessments
-        ]
-    )
+    return {
+        "items": [a.to_dict() for a in assessments],
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit,
+    }   
 
-# Endpoint for doctors to submit a review for an assessment
-@router.post("/review/{assessment_id}", response_model=DoctorReviewResponse)
+# Endpoint for doctors to submit a review for a patient's report.
+@router.post("/review")
 async def submit_review(
-    assessment_id: str,
-    review_request: DoctorReviewRequest,
+    body: DoctorReviewRequest,
     db: AsyncSession = Depends(get_db),
-    doctor: User = Depends(require_doctor)
+    user: User = Depends(require_doctor),
 ):
-    # Check if the assessment exists
-    result = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
-    assessment = result.scalar_one_or_none()
-    
-    if assessment is None:
-        raise HTTPException(status_code=404, detail="Assessment not found")
-    
-    # Create a new doctor review
-    doctor_review = DoctorReview(
-        assessment_id=assessment_id,
-        doctor_id=doctor.id,
-        verdict=review_request.status,
-        notes=review_request.notes
+
+    # Fetch assessment
+    result = await db.execute(
+        select(Report)
+        .options(
+            selectinload(Report.patient),
+            selectinload(Report.doctor_review),
+        )
+        .where(Report.id == body.report_id)
     )
-    
-    db.add(doctor_review)
-    
-    # Create a notification for the patient about the review outcome
-    notification = Notification(
-        user_id=assessment.patient_id,
-        type = "doctor_review",
-        title = "Assessment Review Update",
-        message=f"Your assessment has been reviewed by Dr. {doctor.name}. Status: {review_request.status}"
-    )
-    db.add(notification)
-    
-    # Update the assessment status based on the doctor's review
-    assessment.status = review_request.status
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(404, "Report not found")
+    if report.patient_id != body.patient_id:
+        raise HTTPException(400, "Patient ID does not match report record")
+
+    # Prevent duplicate reviews (upsert pattern)
+    if report.doctor_review:
+        # Update existing review
+        review = report.doctor_review
+        review.doctor_id = user.id
+        review.diagnosis = body.diagnosis
+        review.recommendations = body.recommendations
+        review.risk_override = body.risk_override or {}
+    else:
+        review = DoctorReview(
+            report_id=body.report_id,
+            doctor_id=user.id,
+            diagnosis=body.diagnosis,
+            recommendations=body.recommendations,
+            risk_override=body.risk_override or {}
+        )
+        db.add(review)
+
+    report.status = "reviewed"
+
+    # Notify patient
+    db.add(Notification(
+        user_id=report.patient_id,
+        type="doctor_review",
+        title=f"Doctor Review Complete — {user.name}",
+        message=(
+            f"{user.name} has completed your clinical assessment. "
+            "Tap to view your diagnosis and recommendations."
+        ),
+        action_page="feedback",
+        report_id=report.id,
+    ))
+
     await db.commit()
-    
-    return DoctorReviewResponse(
-        assessment_id=assessment_id,
-        doctor_id=doctor.id,
-        notes=review_request.notes,
-        status=review_request.status,
-        message="Review submitted successfully"
+    await db.refresh(review)
+
+    return {"ok": True, "review_id": review.id}
+
+
+# Endpoint for doctors to view all their corrections (overrides to AI risk scores) for ML feedback learning.
+@router.get("/corrections")
+async def get_corrections(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_doctor),
+    page: int = 1,
+    limit: int = 30,
+):
+    """
+    All assessments where the doctor overrode at least one AI risk level.
+    Used for ML feedback learning.
+    """
+    offset = (page - 1) * limit
+
+    # Find reviews with non-empty risk_override
+    result = await db.execute(
+        select(DoctorReview)
+        .options(
+            selectinload(DoctorReview.report).selectinload(Report.patient),
+            selectinload(DoctorReview.doctor),
+        )
+        .where(DoctorReview.risk_override != {})
+        .order_by(DoctorReview.reviewed_at.desc())
+        .offset(offset)
+        .limit(limit)
     )
+    reviews = result.scalars().all()
+
+    corrections = []
+    for r in reviews:
+        a = r.report
+        for disease, override in r.risk_override.items():
+            original_score = a.predictions.get(disease, 0) if a.predictions else 0
+            corrections.append({
+                "review_id": r.id,
+                "report_id": a.id,
+                "patient_name": a.patient.name if a.patient else "Unknown",
+                "doctor_name": r.doctor.name if r.doctor else "Unknown",
+                "disease": disease,
+                "ai_score": original_score,
+                "doctor_override": override,
+                "reviewed_at": r.reviewed_at.isoformat(),
+            })
+
+    return {"corrections": corrections, "total": len(corrections)}
 
 
+
+# Endpoint for doctors to view analytics and aggregate statistics for their dashboard.
 @router.get("/analytics")
 async def analytics(
     db: AsyncSession = Depends(get_db),
-    doctor: User = Depends(require_doctor)
+    user: User = Depends(require_doctor),
 ):
-    # For simplicity, we return some basic analytics about the doctor's assessments
-    result = await db.execute(
-        select(Assessment)
-        .where(Assessment.doctor_id == doctor.id)
-    )
-    
-    assessments = result.scalars().all()
-    
-    total_assessments = len(assessments)
-    high_risk_count = sum(1 for a in assessments if a.risk_level == "high")
-    medium_risk_count = sum(1 for a in assessments if a.risk_level == "medium")
-    low_risk_count = sum(1 for a in assessments if a.risk_level == "low")
-    
-    return {
-        "total_assessments": total_assessments,
-        "high_risk_count": high_risk_count,
-        "medium_risk_count": medium_risk_count,
-        "low_risk_count": low_risk_count
-    }
-    
+    """Aggregate statistics for the doctor dashboard."""
+    total = (await db.execute(select(func.count(Report.id)))).scalar()
+    pending = (await db.execute(
+        select(func.count(Report.id)).where(Report.status == "pending_review")
+    )).scalar()
+    reviewed = (await db.execute(
+        select(func.count(Report.id)).where(Report.status == "reviewed")
+    )).scalar()
 
-@router.get("/corrections")
-async def corrections(
-    db: AsyncSession = Depends(get_db),
-    doctor: User = Depends(require_doctor)
-):
-    # Get assessments that have been reviewed by the doctor but are pending patient feedback
-    result = await db.execute(
-        select(Assessment)
-        .where(Assessment.doctor_id == doctor.id)
-        .where(Assessment.status == "pending")
+    # Average risk scores across all assessments (using JSON field)
+    # Note: For complex JSON aggregation you'd do this in a reporting query or Pandas
+    # Here we fetch recent and compute in Python
+    recent_result = await db.execute(
+        select(Report.predictions)
+        .where(Report.predictions != {})
+        .limit(500)
     )
-    
-    assessments = result.scalars().all()
-    
-    return {
-        "count": len(assessments),
-        "items": [
-            {
-                "id": a.id,
-                "patient_id": a.patient_id,
-                "prediction": a.prediction,
-                "risk_level": a.risk_level,
-                "created_at": str(a.created_at)
-            }
-            for a in assessments
-        ]
+    all_preds = [row[0] for row in recent_result if row[0]]
+
+
+    # Calculate average risks for each disease across all predictions
+    diseases = ["diabetes", "hypertension", "heartDisease", "kidneyDisease", "liverDisease", "anemia"]
+    valid_preds = [p for p in all_preds if isinstance(p, dict)]
+
+    avg_risks = {
+        d: round(sum(p.get(d, 0) for p in valid_preds) / len(valid_preds), 1)
+        if valid_preds else 0
+        for d in diseases
     }
-    
+
+
+    # Count high risk patients (any disease with risk >= 60)
+    high_risk_count = 0
+    for p in all_preds:
+        if isinstance(p, dict):
+            for v in p.values():
+                if v >= 60:
+                    high_risk_count += 1
+                    break
+
+    return {
+        "total_assessments": total,
+        "pending_review": pending,
+        "reviewed": reviewed,
+        "high_risk_patients": high_risk_count,
+        "average_risks": avg_risks,
+    }
