@@ -7,16 +7,18 @@ from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from core.config import settings
 from db.session import get_db
-from models import user
+from models.user import User
 from core.security import decode_access_token
 
 # Define the OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Dependency to get the current user based on the provided token
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)):
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), 
+    db: AsyncSession = Depends(get_db)
+):
     
     # Define a credentials exception to be raised if the token is invalid or the user cannot be found
     credentials_exception = HTTPException(
@@ -25,18 +27,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = decode_access_token(token)
-        if payload is None:
+        email = decode_access_token(token)
+        if email is None:
             raise credentials_exception
         
-        user_id = payload.get("sub")
-        if user_id is None:
+        email = email.get("sub")
+        if email is None:
             raise credentials_exception
+        
     except JWTError:
         raise credentials_exception
 
-    # Query the database to get the user based on the ID from the token payload
-    result = await db.execute(select(user.User).where(user.User.id == user_id))
+    # Query the database to get the user based on the email from the token payload
+    result = await db.execute(select(User).where(User.email == email))
     current_user = result.scalar_one_or_none()
     
     if current_user is None:
@@ -45,7 +48,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
 
 # Dependency for role based access control (RBAC)
 def require_role(required_role: str):
-    async def role_dependency(current_user: user.User = Depends(get_current_user)):
+    async def role_dependency(current_user: User = Depends(get_current_user)):
         if current_user.role != required_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
