@@ -4,7 +4,7 @@
 from typing import Optional
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import JSON, Float, Integer, String, ForeignKey, Enum as SAEnum
+from sqlalchemy import JSON, DateTime, Float, Integer, String, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -59,9 +59,13 @@ class Report(Base):
     shap_values: Mapped[list] = mapped_column(JSON, default=list)   # JSON field to store SHAP values for explainability of the predictions
     ensemble_confidence: Mapped[Optional[float]] = mapped_column(Float)  # Confidence score for the ensemble prediction (0-1)
     
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))  # Timestamp for when the assessment was created
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))  # Timestamp for when the assessment was last updated
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # Timestamp for when the assessment was created
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))  # Timestamp for when the assessment was last updated
     
+    # Generated Recommendations based on the risk level (can be generated after the prediction is made)
+    recommendations: Mapped[dict] = mapped_column(JSON, default=dict)  # JSON field to store lifestyle recommendations based on the predicted risk level
+    models_used: Mapped[list] = mapped_column(JSON, default=list)  # JSON field to store the list of ML models used for the prediction (e.g., ["heart_disease_model", "diabetes_model"])
+    # Status of the report (pending, reviewed, follow-up)
     status = mapped_column(SAEnum("pending", "reviewed", "follow-up", name="report_status"), default="pending")  # Status of the report (pending, reviewed, follow-up)
     
     # Relationships to other models (e.g., doctor review, follow-ups) can be defined here using SQLAlchemy relationships
@@ -108,7 +112,9 @@ class Report(Base):
                 "predictions": self.predictions,
                 "risk_level": self.risk_level,
                 "shap_values": self.shap_values,
-                "ensemble_confidence": self.ensemble_confidence
+                "ensemble_confidence": self.ensemble_confidence,
+                "recommendations": self.recommendations,
+                "models_used": self.models_used,
                 
             },
             "doctor_review": self.doctor_review.to_dict() if self.doctor_review else None,  # Include doctor review if it exists
