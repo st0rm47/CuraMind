@@ -56,7 +56,7 @@ async def register(
         ))
         
     await db.commit()  # Commit the welcome notification to the database
-    token = create_access_token(str(new_user.id))  # Create a JWT access token for the new user
+    token = create_access_token(str(new_user.email))  # Create a JWT access token for the new user
     return {
         "access_token": token,
         "token_type": "bearer",
