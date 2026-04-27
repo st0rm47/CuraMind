@@ -11,16 +11,17 @@ class HealthParams(BaseModel):
     weight : float = Field(..., ge=20.0, le=300.0, description="kg")                                # Weight in kilograms (20-300 kg)
     height : float = Field(..., ge=50.0, le=250.0, description="cm")                                # Height in centimeters (50-250 cm) 
     
-    glucose : float = Field(..., ge=0.0, le=500.0, description="Blood glucose level in mg/dL")              # Blood glucose level in mg/dL (0-500 mg/dL)
-    systolic_bp : float = Field(..., ge=0.0, le=300.0, description="Systolic blood pressure in mmHg")       # Systolic blood pressure in mmHg (0-300 mmHg)
-    diastolic_bp : float = Field(..., ge=0.0, le=200.0, description="Diastolic blood pressure in mmHg")     # Diastolic blood pressure in mmHg (0-200 mmHg)
-    cholesterol : float = Field(..., ge=0.0, le=500.0, description="Cholesterol level in mg/dL")             # Cholesterol level in mg/dL (0-500 mg/dL)
+    glucose : float = Field(..., ge=50.0, le=500.0, description="Blood glucose level in mg/dL")              # Blood glucose level in mg/dL (50-500 mg/dL)
+    cholesterol : float = Field(..., ge=100.0, le=600.0, description="Cholesterol level in mg/dL")             # Cholesterol level in mg/dL (100-600 mg/dL)
 
-    hemoglobin: float = Field(..., ge=0.0, le=25.0, description="Hemoglobin level in g/dL")                 # Hemoglobin level in g/dL (0-25 g/dL)  
+    # Parameters for diabetes prediction model
+    hemoglobin: float = Field(..., ge=5.0, le=25.0, description="Hemoglobin level in g/dL")                 # Hemoglobin level in g/dL (5-25 g/dL)  
     wbc_count: float = Field(..., ge=1000.0, le=30000.0, description="White blood cell count in 10^9/L")    # White blood cell count in 10^9/L (1000-30000 10^9/L)
-    creatinine: float = Field(..., ge=0.0, le=20.0, description="Creatinine level in mg/dL")                # Creatinine level in mg/dL (0-20 mg/dL)
+    creatinine: float = Field(..., ge=0.3, le=15.0, description="Creatinine level in mg/dL")                # Creatinine level in mg/dL (0.3-15 mg/dL)
     platelet_count: float = Field(..., ge=10000.0, le=800000.0, description="Platelet count in 10^9/L")     # Platelet count in 10^9/L (10000-800000 10^9/L)
     
+    
+    # Lifestyle and family history parameters
     smoking_status: str = Field(..., pattern="^(never|former|current)$", description="Smoking status of the patient")                       # Smoking status of the patient (never, former, current)
     alcohol_consumption: str = Field(..., pattern="^(none|occasional|moderate|high)$", description="Alcohol consumption of the patient")    # Alcohol consumption of the patient (none, occasional, moderate, high)
     physical_activity: str = Field(..., pattern="^(none|light|moderate|high)$", description="Physical activity level of the patient")       # Physical activity level of the patient (none, light, moderate, high)
@@ -28,13 +29,17 @@ class HealthParams(BaseModel):
     symptoms: Optional[str] = Field(None, description="Symptoms reported by the patient")                                                   # Symptoms reported by the patient (optional, can be added later)
     
     
-    # Custom validaion for bp
-    @model_validator(mode="after")
-    def validate_bp(self):
-        if self.systolic_bp < self.diastolic_bp:
-            raise ValueError("Systolic blood pressure must be greater than or equal to diastolic blood pressure.")
-        return self
-    
+    # Additional parameters for heart disease prediction model
+    chest_pain_type: str = Field(..., pattern="^(TA|ATA|NAP|ASY)$", description="Type of chest pain experienced by the patient")    # Type of chest pain (TA, ATA, NAP, ASY)
+    resting_ecg: str = Field(..., pattern="^(ST|Normal|LVH)$", description="Resting electrocardiographic results")    # Resting electrocardiographic results (0, 1, 2)
+    resting_bp: float = Field(..., ge=0.0, le=300.0, description="Resting blood pressure in mmHg")    # Resting blood pressure in mmHg (0-300 mmHg)
+    st_slope: str = Field(..., pattern="^(Up|Flat|Down)$", description="Slope of the peak exercise ST segment")    # Slope of the peak exercise ST segment (upsloping, flat, downsloping)
+    exercise_angina: str = Field(..., pattern="^(Y|N)$", description="Exercise-induced angina")    # Exercise-induced angina (yes, no)
+    fasting_bs: int = Field(..., ge=50, le=100, description="Fasting blood sugar level in mg/dL")    # Fasting blood sugar level in mg/dL (50-100 mg/dL)
+    max_hr: float = Field(..., ge=0.0,le=220.0, description="Maximum heart rate achieved during exercise")
+    oldpeak: float = Field(..., ge=0.0, le=6.0, description="ST depression induced by exercise relative to rest")
+
+ 
     
     # BMI Calculation as a property
     @property
