@@ -30,13 +30,13 @@ class RegisterRequest(BaseModel):
             raise ValueError('Password must contain at least one number')
         return value
     
-    # Custom validation for email
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, value):
-        if not value.endswith('@gmail.com'):
-            raise ValueError('Email must be from the domain @gmail.com')
-        return value
+    # # Custom validation for email
+    # @field_validator('email')
+    # @classmethod
+    # def validate_email(cls, value):
+    #     if not value.endswith('@gmail.com'):
+    #         raise ValueError('Email must be from the domain @gmail.com')
+    #     return value
     
     # Custom validation for dob format
     @field_validator('dob')
