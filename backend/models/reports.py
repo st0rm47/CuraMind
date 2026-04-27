@@ -27,14 +27,26 @@ class Report(Base):
     bmi : Mapped[float] = mapped_column(Float)             # Body Mass Index
     
     glucose: Mapped[float] = mapped_column(Float)         # Blood glucose level in mg/dL
-    systolic_bp: Mapped[float] = mapped_column(Float)     # Systolic blood pressure in mmHg
-    diastolic_bp: Mapped[float] = mapped_column(Float)    # Diastolic blood pressure in mmHg
     cholesterol: Mapped[float] = mapped_column(Float)      # Cholesterol level in mg/dL
+    
+    # Additional parameters for diabetes prediction model
     hemoglobin: Mapped[float] = mapped_column(Float)     # Hemoglobin level in g/dL
     wbc_count: Mapped[float] = mapped_column(Float)      # White blood cell count in 10^9/L
     creatinine: Mapped[float] = mapped_column(Float)     # Creatinine level in mg/dL
     platelet_count: Mapped[float] = mapped_column(Float)  # Platelet count in 10^9/L
     
+    
+    # Additional parameters for heart disease prediction model
+    chest_pain_type: Mapped[str] = mapped_column(String(20))    #
+    resting_ecg: Mapped[str] = mapped_column(String(20))    # Resting electrocardiographic results
+    resting_bp: Mapped[float] = mapped_column(Float)    # Resting blood pressure in mmHg
+    st_slope: Mapped[str] = mapped_column(String(20))    # Slope of the peak exercise ST segment
+    exercise_angina: Mapped[str] = mapped_column(String(1))    # Exercise-induced angina (Y/N)
+    fasting_bs: Mapped[int] = mapped_column(Integer)    # Fasting blood sugar level in mg/dL
+    max_hr: Mapped[float] = mapped_column(Float)    # Maximum heart rate achieved during exercise
+    oldpeak: Mapped[float] = mapped_column(Float)    # ST depression induced by exercise relative to rest
+    
+    # Lifestyle and family history parameters
     smoking_status: Mapped[str] = mapped_column(String(20))          # Smoking status of the patient (never, former, current)
     alcohol_consumption: Mapped[str] = mapped_column(String(20))     # Alcohol consumption of the patient (none, occasional, moderate, high)
     physical_activity: Mapped[str] = mapped_column(String(20))       # Physical activity level of the patient (none, light, moderate, high)
@@ -42,6 +54,7 @@ class Report(Base):
     symptoms: Mapped[str] = mapped_column(String(255))              # Symptoms reported by the patient (optional, can be added later)
     
     # Predicted Risk Scores
+    risk_level: Mapped[str] = mapped_column(String(20))  # Overall risk level (e.g., low, moderate, high) based on the predictions
     predictions: Mapped[dict] = mapped_column(JSON, default=dict)  # JSON field to store predicted risk scores for various conditions (e.g., diabetes, heart disease)
     shap_values: Mapped[list] = mapped_column(JSON, default=list)   # JSON field to store SHAP values for explainability of the predictions
     ensemble_confidence: Mapped[Optional[float]] = mapped_column(Float)  # Confidence score for the ensemble prediction (0-1)
@@ -72,13 +85,19 @@ class Report(Base):
                 "height": self.height,
                 "bmi": self.bmi,
                 "glucose": self.glucose,
-                "systolic_bp": self.systolic_bp,
-                "diastolic_bp": self.diastolic_bp,
                 "cholesterol": self.cholesterol,
                 "hemoglobin": self.hemoglobin,
                 "wbc_count": self.wbc_count,
                 "creatinine": self.creatinine,
                 "platelet_count": self.platelet_count,
+                "chest_pain_type": self.chest_pain_type,
+                "resting_ecg": self.resting_ecg,
+                "resting_bp": self.resting_bp,
+                "st_slope": self.st_slope,
+                "exercise_angina": self.exercise_angina,
+                "fasting_bs": self.fasting_bs,
+                "max_hr": self.max_hr,
+                "oldpeak": self.oldpeak,
                 "smoking_status": self.smoking_status,
                 "alcohol_consumption": self.alcohol_consumption,
                 "physical_activity": self.physical_activity,
@@ -87,8 +106,10 @@ class Report(Base):
             },
             "results": {
                 "predictions": self.predictions,
+                "risk_level": self.risk_level,
                 "shap_values": self.shap_values,
-                "ensemble_confidence": self.ensemble_confidence,
+                "ensemble_confidence": self.ensemble_confidence
+                
             },
             "doctor_review": self.doctor_review.to_dict() if self.doctor_review else None,  # Include doctor review if it exists
             "follow_ups": [followup.to_dict() for followup in self.follow_ups]  # Include follow-ups if they exist
