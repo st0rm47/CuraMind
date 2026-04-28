@@ -13,7 +13,7 @@ from models.notifications import Notification
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
 # Endpoint to get all notifications for the current user
-@router.get("")
+@router.get("/")
 async def get_notifications(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
@@ -37,7 +37,7 @@ async def get_notifications(
     return [n.to_dict() for n in notifications]
     
 # Endpoint to get count of unread notifications for the current user
-@router.post("/count")
+@router.get("/count")
 async def get_unread_count(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
@@ -76,7 +76,7 @@ async def mark_notification_as_read(
     return {"message": "Notification marked as read"}
 
 
-@router.get("/read-all")
+@router.patch("/read-all")
 async def mark_all_notifications_as_read(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user)
@@ -94,5 +94,5 @@ async def mark_all_notifications_as_read(
 
     await db.commit()
 
-    return {"message": f"{len(notifications)} notifications marked as read"}
+    return {"ok": True}
 
