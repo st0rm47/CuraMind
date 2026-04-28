@@ -16,6 +16,129 @@ from schemas.doctor import DoctorReviewRequest
 
 router = APIRouter(prefix="/doctor", tags=["Doctor"])
 
+
+# Add this endpoint to your existing doctor router (doctor.routes.py)
+# All imports are already present in your file.
+
+@router.get("/dashboard")
+async def get_doctor_dashboard(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_doctor),
+):
+    """
+    Single endpoint for the doctor dashboard.
+    Returns stats, pending cases, recently reviewed, and average risk per disease.
+    """
+
+    # ── 1. Aggregate counts ───────────────────────────────────────────────────
+    total = (await db.execute(select(func.count(Report.id)))).scalar() or 0
+
+    pending_count = (await db.execute(
+        select(func.count(Report.id)).where(Report.status == "pending")
+    )).scalar() or 0
+
+    reviewed_count = (await db.execute(
+        select(func.count(Report.id)).where(Report.status == "reviewed")
+    )).scalar() or 0
+
+    # ── 2. All predictions — for avg risks + high-risk count ──────────────────
+    all_preds_result = await db.execute(
+        select(Report.predictions).where(Report.predictions != {})
+    )
+    all_preds = [row[0] for row in all_preds_result if row[0]]
+
+    def _score(val) -> float:
+        """Normalise any prediction value to 0-100."""
+        if isinstance(val, dict):
+            s = float(val.get("probability", 0))
+        else:
+            s = float(val or 0)
+        return round(s * 100 if s <= 1 else s, 2)
+
+    # High risk = patient has at least one disease score >= 60
+    high_risk_count = sum(
+        1 for p in all_preds
+        if isinstance(p, dict) and any(_score(v) >= 60 for v in p.values())
+    )
+
+    # Average risk per disease across all stored predictions
+    diseases = ["diabetes", "hypertension", "heartDisease", "kidneyDisease", "liverDisease", "anemia"]
+    valid_preds = [p for p in all_preds if isinstance(p, dict)]
+    avg_risks = {
+        d: round(sum(_score(p.get(d, 0)) for p in valid_preds) / len(valid_preds), 1)
+           if valid_preds else 0
+        for d in diseases
+    }
+
+    # ── 3. Pending cases (fetch 20 so frontend can sort by risk level) ─────────
+    pending_result = await db.execute(
+        select(Report)
+        .options(
+            selectinload(Report.patient),
+            selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
+        )
+        .where(Report.status == "pending")
+        .order_by(Report.created_at.desc())
+        .limit(20)
+    )
+    pending_reports = pending_result.scalars().all()
+
+    # ── 4. Recently reviewed (last 5) ─────────────────────────────────────────
+    recent_result = await db.execute(
+        select(Report)
+        .options(
+            selectinload(Report.patient),
+            selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
+        )
+        .where(Report.status == "reviewed")
+        .order_by(Report.created_at.desc())
+        .limit(5)
+    )
+    recent_reports = recent_result.scalars().all()
+
+    # ── 5. Shape each report ──────────────────────────────────────────────────
+    def _shape(r: Report) -> dict:
+        raw = r.predictions or {}
+        norm_preds = {k: _score(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+
+        conf = r.ensemble_confidence or 0
+        if conf <= 1:
+            conf = round(conf * 100, 1)
+
+        return {
+            "id":           r.id,
+            "submitted_at": r.created_at.isoformat() if r.created_at else None,
+            "status":       r.status,
+            "risk_level":   r.risk_level,
+            "patient_id":   r.patient_id,
+            "patient_name": r.patient.name if r.patient else "Unknown",
+            "result": {
+                "predictions":         norm_preds,      # flat {disease: 0-100}
+                "risk_level":          r.risk_level,
+                "ensemble_confidence": conf,
+                "models_used":         r.models_used if isinstance(r.models_used, list)
+                                       else ([r.models_used] if r.models_used else []),
+            },
+            "doctor_review": {
+                "doctor_name": r.doctor_review.doctor.name if r.doctor_review.doctor else None,
+                "reviewed_at": r.doctor_review.reviewed_at.isoformat()
+                               if r.doctor_review.reviewed_at else None,
+                "diagnosis":   r.doctor_review.diagnosis,
+            } if r.doctor_review else None,
+        }
+
+    return {
+        "stats": {
+            "total_assessments":  total,
+            "pending":     pending_count,
+            "reviewed":           reviewed_count,
+            "high_risk_patients": high_risk_count,
+        },
+        "pending_cases":   [_shape(r) for r in pending_reports],
+        "recent_reviewed": [_shape(r) for r in recent_reports],
+        "average_risks":   avg_risks,
+    }
+    
 # Endpoint for doctors to view their patient queue (recent assessments)
 @router.get("/queue")
 async def patient_queue(
@@ -35,13 +158,13 @@ async def patient_queue(
         selectinload(Report.follow_ups),
     )
 
-    # Apply status filter to the query if specified (e.g., pending_review, reviewed, archived)
-    if status_filter in ("pending_review", "reviewed", "archived"):
+    # Apply status filter to the query if specified (e.g., pending, reviewed, archived)
+    if status_filter in ("pending", "reviewed", "archived"):
         query = query.where(Report.status == status_filter)
 
     # Count total assessments for pagination metadata
     count_q = select(func.count(Report.id))
-    if status_filter in ("pending_review", "reviewed", "archived"):
+    if status_filter in ("pending", "reviewed", "archived"):
         count_q = count_q.where(Report.status == status_filter)
 
     total = (await db.execute(count_q)).scalar()
@@ -178,7 +301,7 @@ async def analytics(
     """Aggregate statistics for the doctor dashboard."""
     total = (await db.execute(select(func.count(Report.id)))).scalar()
     pending = (await db.execute(
-        select(func.count(Report.id)).where(Report.status == "pending_review")
+        select(func.count(Report.id)).where(Report.status == "pending")
     )).scalar()
     reviewed = (await db.execute(
         select(func.count(Report.id)).where(Report.status == "reviewed")
@@ -217,7 +340,7 @@ async def analytics(
 
     return {
         "total_assessments": total,
-        "pending_review": pending,
+        "pending": pending,
         "reviewed": reviewed,
         "high_risk_patients": high_risk_count,
         "average_risks": avg_risks,
