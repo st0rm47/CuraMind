@@ -31,7 +31,7 @@ backend/
 |  └── pagination.py        # Pydantic schemas for pagination
 |
 ├── services
-│  ├── ml.py                # Machine learning model integration
+│  ├── ml_engine.py                # Machine learning model integration
 |
 ├── db
 |  ├── base.py              # Database connection and session management
@@ -43,7 +43,7 @@ backend/
 |
 ├── alembic.ini             # Alembic configuration file
 ├── main.py                 # FastAPI application instance and route registration
-├── requirements.txt        # Python dependencies
+├── .env.example            # Example environment variables file
 ```
 
 # API Documentation
