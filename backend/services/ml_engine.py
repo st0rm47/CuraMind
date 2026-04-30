@@ -1,214 +1,263 @@
-"""
-app/services/ml_engine.py
+from collections import defaultdict
+import json
 
-ML Prediction Engine
-====================
-Currently uses statistical mock functions.
-To plug in your real models, follow the comments marked with ⚡.
+import joblib
+import numpy as np
+import pandas as pd
+import shap
 
-Example with real XGBoost:
-    import joblib, numpy as np
-    diabetes_model = joblib.load("models/xgboost_diabetes.pkl")
-    scaler = joblib.load("models/standard_scaler.pkl")
-"""
-import math
-import random
-from typing import Dict, Any, List
 from schemas.patient import HealthParams
 
+import joblib
+import pandas as pd
 
-# ⚡ LOAD YOUR REAL MODELS HERE ─────────────────────────────────────────────────
-# Uncomment and adjust paths once you have trained models:
-#
-# import joblib
-# import numpy as np
-# diabetes_model    = joblib.load("models/xgboost_diabetes.pkl")
-# hypertension_model= joblib.load("models/rf_hypertension.pkl")
-# heart_model       = joblib.load("models/nn_heart_disease.pkl")
-# kidney_model      = joblib.load("models/svm_kidney.pkl")
-# liver_model       = joblib.load("models/gb_liver.pkl")
-# anemia_model      = joblib.load("models/lr_anemia.pkl")
-# scaler            = joblib.load("models/standard_scaler.pkl")
-#
-# For real SHAP values:
-# import shap
-# diabetes_explainer = shap.TreeExplainer(diabetes_model)
-# ─────────────────────────────────────────────────────────────────────────────
+model = joblib.load("services/heart_disease_model.pkl")
+feature_names = joblib.load("services/heart_feature_names.pkl")
 
 
-def _clamp(value: float, lo: float = 0.0, hi: float = 97.0) -> int:
-    return max(int(lo), min(int(hi), round(value)))
-
-
-def _noise(scale: float = 4.0) -> float:
-    """Small deterministic-ish noise for mock realism."""
-    return (random.random() - 0.5) * scale
-
-
-def _build_feature_vector(p: HealthParams) -> List[float]:
-    """
-    Returns a flat feature list in a consistent order.
-    ⚡ Use this same order when training your real models.
-    """
-    bmi = p.bmi
-    return [
-        p.age,
-        bmi,
-        p.glucose,
-        p.systolic_bp,
-        p.diastolic_bp,
-        p.cholesterol,
-        p.hemoglobin,
-        p.creatinine,
-        p.wbc_count,
-        p.platelet_count,
-        1 if p.smoking_status == "yes" else (0.5 if p.smoking == "former" else 0),
-        1 if p.alcohol_consumption in ("moderate", "heavy") else 0,
-        1 if p.physical_activity in ("none", "light") else 0,
-        1 if p.gender == "M" else 0,
-        1 if p.family_history in ("diabetes", "multiple") else 0,
-        1 if p.family_history in ("heart", "multiple") else 0,
-    ]
-
-
-def _mock_predictions(p: HealthParams) -> Dict[str, int]:
-    """
-    Statistical mock predictions — replace each line with your real model call.
-    ⚡ Example replacement for diabetes:
-        features_scaled = scaler.transform([_build_feature_vector(p)])
-        diabetes = round(diabetes_model.predict_proba(features_scaled)[0][1] * 100)
-    """
-    bmi = p.bmi
-    age_f = p.age / 80.0
-    fhist = p.family_history
-
-    diabetes = _clamp(
-        (p.glucose / 180) * 42
-        + (bmi / 35) * 22
-        + age_f * 18
-        + (8 if fhist in ("diabetes", "multiple") else 0)
-        + (6 if p.smoking_status == "yes" else 0)
-        + _noise()
-    )
-
-
-    heart_disease = _clamp(
-        (p.cholesterol / 280) * 38
-        + age_f * 32
-        + (bmi / 35) * 10
-        + (12 if p.smoking_status == "yes" else 0)
-        + (8 if fhist in ("heart", "multiple") else 0)
-        + _noise()
-    )
-
+# Helper function to build input dictionary for heart disease prediction model
+def build_heart_input(p):
     return {
-        "diabetes": diabetes,
-        "heartDisease": heart_disease,
+        "Age": float(p.age),
+        "Sex": "Male" if p.gender.lower() == "male" else "Female",
+        "ChestPainType": str(p.chest_pain_type),
+        "RestingBP": float(p.resting_bp),
+        "Cholesterol": float(p.cholesterol),
+        "FastingBS": int(p.fasting_bs),
+        "RestingECG": str(p.resting_ecg),
+        "MaxHR": float(p.max_hr),
+        "ExerciseAngina": p.exercise_angina,  # KEEP "Y"/"N" ONLY
+        "Oldpeak": float(p.oldpeak),
+        "ST_Slope": str(p.st_slope)
     }
 
 
-def _compute_shap(p: HealthParams, predictions: Dict[str, int]) -> List[Dict[str, Any]]:
-    """
-    Mock SHAP values — sign and magnitude estimated from domain knowledge.
-    ⚡ Replace with:
-        features_scaled = scaler.transform([_build_feature_vector(p)])
-        shap_vals = diabetes_explainer.shap_values(features_scaled)[0]
-        # Then map feature names to shap_vals array
-    """
-    bmi = p.bmi
-    hb_low = 13.5 if p.gender == "M" else 12.0
+FEATURE_LABELS = {
+    "cat__Sex_M": "Gender",
+    "cat__Sex_F": "Gender",
+    
+    "cat__ChestPainType_ASY": "Chest Pain Type",
+    "cat__ChestPainType_ATA": "Chest Pain Type",
+    "cat__ChestPainType_NAP": "Chest Pain Type",
+    "cat__ChestPainType_TA": "Chest Pain Type",
 
-    factors = [
-        {
-            "feature": "Blood Glucose",
-            "value": round(p.glucose, 1),
-            "unit": "mg/dL",
-            "impact": round((p.glucose - 100) / 150 * 32, 1),
-            "direction": "risk" if p.glucose > 100 else "protective",
-            "normal_range": "70–100 mg/dL (fasting)",
-        },
-        {
-            "feature": "BMI",
-            "value": bmi,
-            "unit": "",
-            "impact": round((bmi - 22) / 18 * 24, 1),
-            "direction": "risk" if bmi > 25 else "protective",
-            "normal_range": "18.5–24.9",
-        },
-        {
-            "feature": "Systolic BP",
-            "value": round(p.systolic_bp, 0),
-            "unit": "mmHg",
-            "impact": round((p.systolic_bp - 120) / 60 * 20, 1),
-            "direction": "risk" if p.systolic_bp > 120 else "protective",
-            "normal_range": "< 120 mmHg",
-        },
-        {
-            "feature": "Age",
-            "value": p.age,
-            "unit": "yrs",
-            "impact": round((p.age / 80) * 16, 1),
-            "direction": "risk",
-            "normal_range": "N/A",
-        },
-        {
-            "feature": "Cholesterol",
-            "value": round(p.cholesterol, 0),
-            "unit": "mg/dL",
-            "impact": round((p.cholesterol - 200) / 100 * 14, 1),
-            "direction": "risk" if p.cholesterol > 200 else "protective",
-            "normal_range": "< 200 mg/dL",
-        },
-        {
-            "feature": "Hemoglobin",
-            "value": round(p.hemoglobin, 1),
-            "unit": "g/dL",
-            "impact": round((hb_low - p.hemoglobin) / hb_low * 18, 1),
-            "direction": "risk" if p.hemoglobin < hb_low else "protective",
-            "normal_range": "M: 13.5–17.5 · F: 12–15.5 g/dL",
-        },
-        {
-            "feature": "Creatinine",
-            "value": round(p.creatinine, 2),
-            "unit": "mg/dL",
-            "impact": round((p.creatinine - 1.0) / 3.5 * 20, 1),
-            "direction": "risk" if p.creatinine > 1.2 else "protective",
-            "normal_range": "0.7–1.2 mg/dL",
-        },
-        {
-            "feature": "Smoking",
-            "value": p.smoking_status,
-            "unit": "",
-            "impact": 12 if p.smoking_status == "current" else (0.5 if p.smoking_status == "former" else 0),
-            "direction": "risk" if p.smoking_status != "never" else "protective",
-            "normal_range": "Non-smoker",
-        },
-        {
-            "feature": "Physical Activity",
-            "value": p.physical_activity,
-            "unit": "",
-            "impact": -8 if p.physical_activity == "active" else -4 if p.physical_activity == "moderate" else 6 if p.physical_activity == "none" else 2,
-            "direction": "protective" if p.physical_activity in ("active", "moderate") else "risk",
-            "normal_range": "≥ 150 min/week",
-        },
-    ]
+    "cat__RestingECG_Normal": "Resting ECG",
+    "cat__RestingECG_ST": "Resting ECG",
 
-    return sorted(factors, key=lambda x: abs(x["impact"]), reverse=True)
+    "cat__ExerciseAngina_Y": "Exercise-Induced Angina",
+
+    "cat__ST_Slope_Flat": "ST Segment Slope",
+    "cat__ST_Slope_Up": "ST Segment Slope",
+
+    "num__Age": "Age",
+    "num__RestingBP": "Resting Blood Pressure",
+    "num__Cholesterol": "Cholesterol",
+    "num__FastingBS": "Fasting Blood Sugar",
+    "num__MaxHR": "Maximum Heart Rate",
+    "num__Oldpeak": "ST Depression",
+}
+
+VALUE_MAP = {
+    "ChestPainType": {
+        0: "Asymptomatic",
+        1: "Atypical Angina",
+        2: "Non-Anginal Pain",
+        3: "Typical Angina",
+    },
+    "Sex": {0: "Female", 1: "Male"},
+    "ExerciseAngina": {0: "No", 1: "Yes"},
+    "RestingECG": {0: "Normal", 1: "ST", 2: "LVH"},
+}
+
+def decode_value(feature, val):
+    val = clean_value(val)
+
+    for key in VALUE_MAP:
+        if key.lower() in feature.lower():
+            try:
+                return VALUE_MAP[key].get(int(val), val)
+            except:
+                return val
+
+    return val
+
+VALUE_TRANSLATIONS = {
+    "ASY": "Asymptomatic",
+    "ATA": "Atypical Angina",
+    "NAP": "Non-Anginal Pain",
+    "TA": "Typical Angina",
+
+    "Y": "Yes",
+    "N": "No",
+
+    "Up": "Upward",
+    "Flat": "Flat",
+    "Down": "Downward",
+}
 
 
-def run_prediction(p: HealthParams) -> Dict[str, Any]:
-    """
-    Main entry point — called from the API route.
-    Returns a dict that gets stored in Assessment.predictions etc.
-    """
-    predictions = _mock_predictions(p)
-    shap_values = _compute_shap(p, predictions)
 
+# Function to get SHAP values for explainability of the heart disease prediction
+# def get_shap_values(p):
+#     input_dict = build_heart_input(p)
+#     input_df = pd.DataFrame([input_dict])
+
+#     # 🔥 STEP 1: transform using pipeline
+#     X_transformed = model.named_steps["preprocessor"].transform(input_df)
+
+#     # feature names after encoding
+#     feature_names = model.named_steps["preprocessor"].get_feature_names_out()
+
+#     # 🔥 STEP 2: use tree explainer on final model
+#     explainer = shap.TreeExplainer(model.named_steps["model"])
+
+#     shap_values = explainer.shap_values(X_transformed)
+
+#     # class 1 (disease)
+#     values = shap_values[0]
+
+#     explanation = []
+
+#     for name, val, impact in zip(feature_names, X_transformed[0], values):
+#         explanation.append({
+#             "feature": name,
+#             "value": float(val),
+#             "impact": round(float(np.array(impact)[0]), 4),
+#             "effect": "increases risk" if impact > 0 else "decreases risk"
+#         })
+
+#     return explanation
+
+
+# Function to run prediction and get risk level and recommendations based on the predicted probability of heart disease
+def predict_heart(p):
+
+    input_dict = build_heart_input(p)
+
+    input_df = pd.DataFrame([input_dict])
+
+    prob = model.predict_proba(input_df)[0][1] * 100
+
+    return prob
+
+
+import numpy as np
+
+def clean_value(v):
+    if isinstance(v, (np.float64, np.float32, np.int64, np.int32)):
+        return float(v)
+    return v
+
+def get_shap_values(p):
+
+    input_dict = build_heart_input(p)
+    input_df = pd.DataFrame([input_dict])
+
+    preprocessor = model.named_steps["preprocessor"]
+    clf = model.named_steps["model"]
+
+    X_transformed = preprocessor.transform(input_df)
+    feature_names = preprocessor.get_feature_names_out()
+
+    explainer = shap.TreeExplainer(clf)
+    shap_values = explainer.shap_values(X_transformed)
+
+    values = np.array(shap_values)
+
+    # handle binary classification
+    if values.ndim == 3:
+        values = values[:, :, 1]
+
+    values = values[0]
+    explanations = []
+    grouped = defaultdict(lambda: {
+        "feature": "",
+        "value": None,
+        "impact": 0.0,
+        "effect": ""
+    })
+
+    for name, val, impact in zip(feature_names, X_transformed[0], values):
+
+        impact_value = float(np.ravel(impact)[0])
+        readable_name = FEATURE_LABELS.get(name, name)
+        decoded_value = decode_value(name, val)
+
+        if grouped[readable_name]["feature"] == "":
+            grouped[readable_name]["feature"] = readable_name
+            grouped[readable_name]["value"] = decoded_value
+
+        grouped[readable_name]["impact"] += impact_value
+        
+    
+    for item in grouped.values():
+        explanations.append({
+            "feature": item["feature"],
+            "value": item["value"],
+            "impact": round(item["impact"], 4),
+            "effect": "increases risk" if item["impact"] > 0 else "decreases risk"
+        })
+        
+    # sort by importance
+    explanations = sorted(explanations, key=lambda x: abs(x["impact"]), reverse=True)
+
+    # limit top 5
+    return explanations
+
+# Run prediction and get risk level and recommendations based on the predicted probability of heart disease
+def run_prediction(p):
+    input_dict = build_heart_input(p)
+    input_df = pd.DataFrame([input_dict])
+
+    prob = float(model.predict_proba(input_df)[0][1] * 100)
+
+    if prob >= 65:
+        risk_level = "high"
+    elif prob >= 35:
+        risk_level = "medium"
+    else:
+        risk_level = "low"
+
+    recommendations = recommend_lifestyle_changes(risk_level)
+
+    explanations = get_shap_values(p)
     return {
-        "predictions": predictions,
-        "shap_values": shap_values,
-        "bmi": p.bmi,
-        "risk_level": "high" if predictions["diabetes"] > 70 else "medium" if predictions["diabetes"] > 40 else "low",
-        "ensemble_confidence": round(87 + random.random() * 8, 1),
-        "preprocessing": "Z-score normalisation → SMOTE → Feature selection (top 15)",
+        "prediction": {
+            "heart_disease": {
+                "disease_name": "Heart Disease",
+                "probability": round(prob, 2),
+                "risk_level": risk_level,
+            }
+        },
+        "risk_level": risk_level,
+        "confidence": round(float(prob), 2),
+        "key_factors": explanations,
+        "recommendations": recommendations,
+        "model": "Random Forest (CuraMind Heart Model)"
     }
+    
+    
+# Function to recommend lifestyle changes based on the predicted risk level of heart disease
+def recommend_lifestyle_changes(risk_level):
+    if risk_level == "high":
+        return [
+            "Adopt a heart-healthy diet rich in fruits, vegetables, and whole grains.",
+            "Engage in regular physical activity, aiming for at least 150 minutes of moderate exercise per week.",
+            "Quit smoking and avoid exposure to secondhand smoke.",
+            "Manage stress through techniques like meditation, yoga, or deep breathing exercises.",
+            "Limit alcohol consumption to moderate levels."
+        ]
+    elif risk_level == "medium":
+        return [
+            "Maintain a balanced diet with plenty of fruits and vegetables.",
+            "Incorporate regular physical activity into your routine.",
+            "Avoid smoking and limit alcohol intake.",
+            "Monitor your blood pressure and cholesterol levels regularly.",
+            "Manage stress effectively."
+        ]
+    else:
+        return [
+            "Continue to eat a healthy diet and stay active.",
+            "Avoid smoking and limit alcohol consumption.",
+            "Regularly monitor your heart health and consult with your doctor as needed."
+        ]
