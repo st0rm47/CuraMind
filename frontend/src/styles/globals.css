@@ -1,0 +1,363 @@
+/* src/styles/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans:  'Outfit', system-ui, sans-serif;
+    --font-mono:  'IBM Plex Mono', monospace;
+    --font-serif: 'Lora', serif;
+  }
+  
+  html {
+    font-family: var(--font-sans);
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-gray-950 text-gray-100 antialiased;
+  }
+
+  /* Light mode body */
+  html.light body {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar       { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
+  html.light ::-webkit-scrollbar-thumb { @apply bg-gray-300; }
+
+  /* Focus ring */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-gray-950;
+  }
+  html.light *:focus-visible {
+    @apply ring-offset-white;
+  }
+}
+
+@layer components {
+  /* ── Cards ── */
+  .card {
+    @apply bg-gray-900 border border-gray-800 rounded-2xl p-5;
+  }
+  html.light .card {
+    @apply bg-white border-gray-200;
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:border-gray-700 hover:-translate-y-0.5 hover:shadow-card-hover;
+  }
+  html.light .card-hover {
+    @apply hover:border-gray-300;
+  }
+
+  /* ── Form controls ── */
+  .form-label {
+    @apply block text-[10px] font-semibold text-gray-400 uppercase tracking-widest font-mono mb-1.5;
+  }
+
+  .form-input {
+    @apply w-full px-3.5 py-2.5 bg-gray-800 border border-gray-700 rounded-lg
+           text-gray-100 text-sm placeholder-gray-500
+           focus:border-brand-500 focus:ring-0 outline-none
+           transition-colors duration-150;
+  }
+  html.light .form-input {
+    @apply bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-400
+           focus:border-brand-500;
+  }
+
+  .form-input-error {
+    @apply border-red-500 focus:border-red-500;
+  }
+
+  .form-error {
+    @apply text-[11px] text-red-400 mt-1 font-mono;
+  }
+
+  .form-hint {
+    @apply text-[11px] text-gray-500 mt-1 font-mono;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5
+           rounded-lg font-semibold text-sm cursor-pointer
+           transition-all duration-150 select-none border-0 outline-none;
+  }
+
+  .btn-primary {
+    @apply bg-brand-500 text-white hover:bg-brand-600 active:scale-[.98]
+           shadow-glow;
+  }
+
+  .btn-teal {
+    @apply bg-teal-500 text-gray-950 hover:bg-teal-600 active:scale-[.98]
+           shadow-glow-teal;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-gray-400 border border-gray-700
+           hover:border-brand-500 hover:text-brand-400 hover:bg-brand-500/10;
+  }
+  html.light .btn-ghost {
+    @apply border-gray-300 text-gray-500 hover:border-brand-500 hover:text-brand-600;
+  }
+
+  .btn-danger {
+    @apply bg-red-500/10 text-red-400 border border-red-500/30
+           hover:bg-red-500/20;
+  }
+
+  .btn-sm  { @apply px-3 py-1.5 text-xs; }
+  .btn-lg  { @apply px-6 py-3.5 text-base; }
+  .btn-full{ @apply w-full; }
+
+  .btn:disabled {
+    @apply opacity-50 cursor-not-allowed pointer-events-none;
+  }
+
+  /* ── Risk badges ── */
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           text-[10px] font-bold font-mono uppercase tracking-wide;
+  }
+
+  .badge-low      { @apply bg-teal-500/10  text-teal-400  border border-teal-500/25; }
+  .badge-medium   { @apply bg-yellow-500/10 text-yellow-400 border border-yellow-500/25; }
+  .badge-high     { @apply bg-rose-500/10  text-rose-400  border border-rose-500/25; }
+  .badge-critical { @apply bg-red-500/10   text-red-400   border border-red-500/35
+                           animate-pulse; }
+
+  /* ── Tags ── */
+  .tag      { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono; }
+  .tag-blue { @apply bg-brand-500/10 text-brand-400 border border-brand-500/20; }
+  .tag-teal { @apply bg-teal-500/10  text-teal-400  border border-teal-500/20; }
+  .tag-amber{ @apply bg-yellow-500/10 text-yellow-400 border border-yellow-500/20; }
+
+  /* ── Page header ── */
+  .page-title { @apply text-2xl font-extrabold tracking-tight; }
+  .page-sub   { @apply text-sm text-gray-400 mt-1; }
+
+  /* ── Divider ── */
+  .divider { @apply h-px bg-gray-800 my-4; }
+  html.light .divider { @apply bg-gray-200; }
+
+  /* ── Section label ── */
+  .section-label {
+    @apply text-[9px] font-semibold font-mono uppercase tracking-[.12em]
+           text-gray-500 px-2 py-1;
+  }
+
+  /* ── Disclaimer box ── */
+  .disclaimer {
+    @apply flex gap-3 items-start p-3.5 rounded-xl
+           bg-yellow-500/8 border border-yellow-500/30;
+  }
+  .disclaimer-title { @apply text-xs font-bold text-yellow-400 mb-1; }
+  .disclaimer-body  { @apply text-xs text-gray-400 leading-relaxed; }
+}
+
+@layer utilities {
+  .font-mono   { font-family: var(--font-mono); }
+  .font-serif  { font-family: var(--font-serif); }
+  .bg-yellow-500\/8 { background-color: rgb(234 179 8 / 0.08); }
+}
+
+
+/* Disease for Prediction Page */
+.disease-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3;
+}
+
+.disease-card {
+  @apply bg-gray-900 border border-gray-800 rounded-xl p-4 text-center transition-all duration-200;
+  min-width: 0;
+}
+
+.disease-card:hover {
+  @apply border-gray-700 -translate-y-1;
+}
+
+.disease-icon {
+  @apply text-2xl mb-2;
+}
+
+.disease-name {
+  @apply text-xs font-semibold text-gray-300 mb-2;
+}
+
+.disease-pct {
+  @apply font-mono text-xl font-bold mb-1;
+}
+
+/* Risk Badge */
+.risk-badge {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono;
+}
+
+.risk-low {
+  @apply text-teal-400 bg-teal-500/10 border border-teal-500/20;
+}
+
+.risk-medium {
+  @apply text-yellow-400 bg-yellow-500/10 border border-yellow-500/20;
+}
+
+.risk-high {
+  @apply text-rose-400 bg-rose-500/10 border border-rose-500/20;
+}
+
+.risk-critical {
+  @apply text-red-400 bg-red-500/10 border border-red-500/30 animate-pulse;
+}
+
+/* Risk Bar */
+.risk-bar-wrap {
+  @apply mb-3;
+}
+
+.risk-bar-header {
+  @apply flex justify-between mb-1;
+}
+
+.risk-bar-bg {
+  @apply h-2 bg-gray-800 rounded overflow-hidden;
+}
+
+.risk-bar-fill {
+  @apply h-full rounded transition-all duration-700;
+}
+
+
+/* AI Loading */
+.ai-loading {
+  @apply flex flex-col items-center justify-center gap-5 py-14;
+}
+
+.ai-spinner {
+  @apply w-14 h-14 rounded-full border-2 border-gray-700 border-t-brand-500 animate-spin;
+}
+
+/* Empty State */
+.empty-state {
+  @apply text-center py-16 text-gray-400;
+}
+
+.empty-icon {
+  @apply text-5xl mb-4 opacity-40;
+} 
+
+/* Fix native select arrow — hide it so our custom SVG arrow shows */
+select.form-input {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none; /* remove any browser-injected arrow */
+}
+ 
+/* Ensure the wrapper for SelectField positions the arrow correctly */
+.select-wrapper {
+  position: relative;
+}
+ 
+.select-arrow {
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: var(--color-gray-400, #9ca3af);
+}
+ 
+/* ── Step wizard progress line ── */
+.step-wizard-line {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #1f2937; /* gray-800 */
+  z-index: 0;
+}
+ 
+.step-wizard-progress {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  height: 1px;
+  background: var(--color-brand-500, #6366f1);
+  z-index: 0;
+  transition: width 0.5s ease;
+}
+ 
+/* ── BMI capsule — compact inline pill ── */
+.bmi-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid #374151;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  width: fit-content;
+}
+ 
+/* ── Review card values — monospace pill ── */
+.review-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #e5e7eb;
+  background: rgba(31, 41, 55, 0.8);
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+ 
+/* ── Section header divider ── */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid #1f2937;
+}
+ 
+.section-header-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+ 
+/* ── Navigation row ── */
+.step-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #1f2937;
+}
+ 
+.step-counter {
+  font-size: 11px;
+  color: #4b5563;
+  font-family: var(--font-mono);
+}
