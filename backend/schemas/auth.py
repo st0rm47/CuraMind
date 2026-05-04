@@ -16,7 +16,7 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] =None                   # Phone number (optional, can be added later)
     speciality: Optional[str] =None            # Specialty (optional, only for doctors)
     license_number: Optional[str] = None        # License number (optional, only for doctors)
-
+    is_active: Optional[bool] = True           # Whether the user account is active (default is True)
 
     # Custom validation for password complexity
     @field_validator('password')
