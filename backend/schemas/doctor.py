@@ -10,7 +10,7 @@ class DoctorReviewRequest(BaseModel):
     diagnosis : str = Field(..., min_length=2, max_length=200, description="Doctor's diagnosis based on the assessment")        # Doctor's diagnosis based on the assessment (minimum 2 characters, maximum 200 characters)
     recommendations : str = Field(..., min_length=2, max_length=500, description="Doctor's recommendations for the patient")    # Doctor's recommendations for the patient (minimum 2 characters, maximum 500 characters)
     risk_override : Optional[Dict[str,str]] = Field(default_factory=dict)                                                                # Optional field to override the risk level determined by the AI model                                           
-
+    follow_up_weeks: Optional[int] = Field(default=4, ge=1, le=52, description="Number of weeks after which the patient should follow up with the doctor")  # Number of weeks after which the patient should follow up with the doctor (default is 4 weeks, must be between 1 and 52 weeks)
 
     # Custom 
     @field_validator('risk_override')

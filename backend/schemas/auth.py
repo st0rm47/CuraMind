@@ -10,7 +10,7 @@ class RegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=100, description="Full name of the user")
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=20, description="Minimum 8 characters with at least one uppercase letter, one lowercase letter, and one number")
-    role: str = Field(..., pattern="^(patient|doctor)$", description="Role of the user")                               # Role can be "patient" or "doctor"
+    role: str = Field(..., pattern="^(patient|doctor|admin)$", description="Role of the user")                               # Role can be "patient" or "doctor"
     dob: Optional[str] = Field(None, description="Date of Birth of the user")                     # Date of Birth (optional, can be added later)
     gender: Optional[str] = Field(None, pattern="^(male|female|other)$", description="Gender of the user")               # Gender (optional, can be added later)
     phone: Optional[str] =None                   # Phone number (optional, can be added later)

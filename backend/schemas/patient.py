@@ -35,7 +35,7 @@ class HealthParams(BaseModel):
     resting_bp: float = Field(..., ge=0.0, le=300.0, description="Resting blood pressure in mmHg")    # Resting blood pressure in mmHg (0-300 mmHg)
     st_slope: str = Field(..., pattern="^(Up|Flat|Down)$", description="Slope of the peak exercise ST segment")    # Slope of the peak exercise ST segment (upsloping, flat, downsloping)
     exercise_angina: str = Field(..., pattern="^(Y|N)$", description="Exercise-induced angina")    # Exercise-induced angina (yes, no)
-    fasting_bs: int = Field(..., ge=50, le=100, description="Fasting blood sugar level in mg/dL")    # Fasting blood sugar level in mg/dL (50-100 mg/dL)
+    fasting_bs: int = Field(..., ge=0, le=1, description="Fasting blood sugar category (0 = ≤120 mg/dL, 1 = >120 mg/dL)")    # Fasting blood sugar level in mg/dL (0 = ≤120 mg/dL, 1 = >120 mg/dL)
     max_hr: float = Field(..., ge=0.0,le=220.0, description="Maximum heart rate achieved during exercise")
     oldpeak: float = Field(..., ge=0.0, le=6.0, description="ST depression induced by exercise relative to rest")
 
