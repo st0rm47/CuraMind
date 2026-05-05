@@ -3,7 +3,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import JSON, Integer, String, ForeignKey, Enum as SAEnum
+from sqlalchemy import JSON, DateTime, Integer, String, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -23,9 +23,9 @@ class DoctorReview(Base):
     diagnosis: Mapped[str] = mapped_column(String(255), nullable=False)  # Diagnosis provided by the doctor
     recommendations: Mapped[str] = mapped_column(String(255), nullable=False)  # Recommendations provided by the doctor
     risk_override: Mapped[dict] = mapped_column(JSON, default=dict)  # JSON field to store any overrides to the predicted risk scores provided by the doctor
-    follow_up_weeks: Mapped[int] = mapped_column(Integer, default=4)  # Number of weeks after which the patient should follow up with the doctor
-    
-    reviewed_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))  # Timestamp for when the review was created
+    follow_up_weeks: Mapped[int] = mapped_column(Integer, nullable=False, default=4)  # Number of weeks after which the patient should follow up with the doctor
+
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # Timestamp for when the review was created
     
     # Relationships to other models (e.g., assessment, doctor) can be defined here using SQLAlchemy relationships
     report= relationship("Report", back_populates="doctor_review")

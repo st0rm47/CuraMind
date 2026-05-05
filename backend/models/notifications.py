@@ -3,7 +3,7 @@
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, String, ForeignKey, Enum as SAEnum
+from sqlalchemy import Boolean, DateTime, String, ForeignKey, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship, relationship
 
 from db.base import Base
@@ -26,7 +26,7 @@ class Notification(Base):
     action_page: Mapped[str] = mapped_column(String(255), nullable=True)  # Optional page or URL that the notification should link to when clicked
     report_id: Mapped[str] = mapped_column(String(36), ForeignKey("reports.id"), nullable=True)  # Optional ID of the report associated with the notification, if applicable
     
-    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(timezone.utc))  # Timestamp when the notification was created
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))  # Timestamp when the notification was created
     is_read: Mapped[bool] = mapped_column(Boolean, default=False)  # Flag to indicate if the notification has been read by the user
     
     # Relationships to other models (e.g., user, reports) can be defined here using SQLAlchemy relationships

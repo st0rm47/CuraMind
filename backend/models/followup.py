@@ -26,7 +26,7 @@ class FollowUp(Base):
     feeling: Mapped[str] = mapped_column(String(20))                # Patient's self-reported feeling compared to the last assessment (better, worse, same)
     symptoms: Mapped[Optional[str]] = mapped_column(Text)            # Updated symptoms reported by the patient (optional, can be added later)
     
-    submitted_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))  # Timestamp for when the follow-up was created
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)) # Timestamp for when the follow-up was created
     
     # Relationships to other models (e.g., reports) can be defined here using SQLAlchemy relationships
     report = relationship("Report", back_populates="follow_ups")

@@ -5,7 +5,7 @@
 from typing import Optional
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Enum as SAEnum
+from sqlalchemy import Boolean, String, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -22,7 +22,7 @@ class User(Base):
     name : Mapped[str] = mapped_column(String(255), nullable=False)  # User's name
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)  # User's email address
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)  # User's hashed password
-    role: Mapped[str] = mapped_column(SAEnum("patient", "doctor", name="user_role"), nullable=False)  # User's role (patient or doctor)
+    role: Mapped[str] = mapped_column(SAEnum("patient", "doctor", "admin", name="user_role"), nullable=False)  # User's role (patient or doctor)
     
     # Patient Fields
     dob: Mapped[Optional[str]] = mapped_column(String(20))
@@ -40,6 +40,7 @@ class User(Base):
     reports = relationship("Report", back_populates="patient", cascade="all, delete-orphan")  # Relationship to the reports created by the user (if patient)
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")  # Relationship to the notifications for the user
     reviews_given = relationship("DoctorReview", back_populates="doctor")  # Relationship to the reviews given by the user (if doctor)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="1")
     
     # Method to convert the User object to a dictionary for easy serialization (e.g., for API responses)
     def to_dict(self):
