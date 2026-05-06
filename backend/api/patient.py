@@ -30,14 +30,8 @@ async def get_patient_dashboard(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_patient),
 ):
-    """
-    Returns all data the patient dashboard needs in a single round-trip:
-      - latest assessment (full params + results)
-      - recent activity timeline (last 5 assessments, lightweight)
-      - total assessment count
-    """
- 
-    # ── 1. Latest assessment (full detail) ───────────────────────────────────
+
+    # Latest assessment (full detail) 
     latest_result = await db.execute(
         select(Report)
         .options(
@@ -51,7 +45,7 @@ async def get_patient_dashboard(
     )
     latest: Report | None = latest_result.scalar_one_or_none()
  
-    # ── 2. Recent activity (last 5, lightweight — no eager-load overhead) ────
+    # 2. Recent activity
     activity_result = await db.execute(
         select(
             Report.id,
@@ -66,13 +60,13 @@ async def get_patient_dashboard(
     )
     activity_rows = activity_result.all()
  
-    # ── 3. Total count ────────────────────────────────────────────────────────
+    # 3. Total count 
     count_result = await db.execute(
         select(func.count(Report.id)).where(Report.patient_id == user.id)
     )
     total_assessments: int = count_result.scalar() or 0
  
-    # ── 4. Shape the response ─────────────────────────────────────────────────
+    # 4. Shape the response 
     def _shape_latest(r: Report) -> dict:
         return {
             "id":            r.id,
@@ -124,6 +118,18 @@ async def get_patient_dashboard(
                 }
                 if r.doctor_review else None
             ),
+            "follow_ups": [
+                {
+                    "id": f.id,
+                    "submitted_at": f.submitted_at.isoformat() if f.submitted_at else None,
+                    "feeling": f.feeling,
+                    "systolic_bp": f.systolic_bp,
+                    "diastolic_bp": f.diastolic_bp,
+                    "weight": f.weight,
+                    "symptoms": f.symptoms,
+                }
+                for f in (r.follow_ups or [])
+            ],
         }
  
     return {
@@ -140,8 +146,7 @@ async def get_patient_dashboard(
                 "status":      row.status,
             }
             for row in activity_rows
-        ],
- 
+        ], 
         # Aggregate stats
         "total_assessments": total_assessments,
     }
@@ -312,104 +317,111 @@ async def get_latest_shap(
         "shap_values": shap_data
     }
     
-# Endpoint for patients to view their assessment history
-@router.get("/history")
-async def get_get_reports(
+
+# Endpoint for patients to view their progress over time, including trends and history of assessments
+@router.get("/progress")
+async def get_patient_progress(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_patient),
-    page: int = 1,
-    limit: int = 20,
+    limit: int = 10,
 ):
-    """Paginated assessment history for the authenticated patient."""
-    offset = (page - 1) * limit
 
-    # Total count
-    count_result = await db.execute(
-        select(func.count(Report.id)).where(Report.patient_id == user.id)
-    )
-    total = count_result.scalar()
-
-    # Fetch page
     result = await db.execute(
         select(Report)
-        .options(
-            selectinload(Report.patient),
-            selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
-            selectinload(Report.follow_ups),
-        )
         .where(Report.patient_id == user.id)
-        .order_by(Report.created_at.desc())
-        .offset(offset)
+        .order_by(Report.created_at.asc())   # oldest first for trend charts
         .limit(limit)
     )
     reports = result.scalars().all()
 
+    if not reports:
+        return {"trend_series": [], "history": [], "total": 0}
+
+    def _score(val) -> float:
+        """Normalise prediction value to 0-100."""
+        if isinstance(val, dict):
+            s = float(val.get("probability", 0))
+        else:
+            s = float(val or 0)
+        return round(s * 100 if s <= 1 else s, 1)
+
+    def _top_prediction(preds: dict) -> dict | None:
+        """Return {disease, score, risk_level} for the highest-scoring disease."""
+        if not isinstance(preds, dict) or not preds:
+            return None
+        best_key, best_val = max(preds.items(), key=lambda kv: _score(kv[1]))
+        score = _score(best_val)
+        if isinstance(best_val, dict):
+            risk_level = best_val.get("risk_level") or _derive_risk(score)
+            disease_name = best_val.get("disease_name", best_key)
+        else:
+            risk_level = _derive_risk(score)
+            disease_name = best_key
+        return {"disease": best_key, "disease_name": disease_name, "score": score, "risk_level": risk_level}
+
+    def _derive_risk(score: float) -> str:
+        if score >= 70: return "high"
+        if score >= 40: return "medium"
+        return "low"
+
+    def _conf(r: Report) -> float:
+        c = r.ensemble_confidence or 0
+        return round(c * 100 if c <= 1 else c, 1)
+
+    # Trend series (chronological, for sparklines) 
+    trend_series = [
+        {
+            # Short label for x-axis: "Jan 24", "Feb 24", etc.
+            "label": r.created_at.strftime("%b %d") if r.created_at else "—",
+            "date":  r.created_at.isoformat() if r.created_at else None,
+            # Six vitals
+            "glucose":      r.glucose,
+            "resting_bp":   r.resting_bp,
+            "weight":       r.weight,
+            "bmi":          round(r.bmi, 1) if r.bmi else None,
+            "cholesterol":  r.cholesterol,
+            "hemoglobin":   r.hemoglobin,
+        }
+        for r in reports
+    ]
+
+    # History table (latest first) 
+    history = [
+        {
+            "id":           r.id,
+            "submitted_at": r.created_at.isoformat() if r.created_at else None,
+            "status":       r.status,
+            # Key params snapshot
+            "glucose":      r.glucose,
+            "resting_bp":   r.resting_bp,
+            "weight":       r.weight,
+            "bmi":          round(r.bmi, 1) if r.bmi else None,
+            "cholesterol":  r.cholesterol,
+            "hemoglobin":   r.hemoglobin,
+            # ML result
+            "risk_level":        r.risk_level,
+            "confidence":        _conf(r),
+            "top_prediction":    _top_prediction(r.predictions or {}),
+            "models_used_count": len(r.models_used) if isinstance(r.models_used, list) else 1,
+            # Review info
+            "reviewed": r.status == "reviewed",
+        }
+        for r in reversed(reports)   # latest first for the table
+    ]
+
     return {
-        "items": [a.to_dict() for a in reports],
-        "total": total,
-        "page": page,
-        "limit": limit,
-        "pages": (total + limit - 1) // limit,
+        "trend_series": trend_series,
+        "history":      history,
+        "total":        len(reports),
     }
-
-# Endpoint for patient to submit their follow-up actions after receiving recommendations
-@router.post("/followup/{report_id}")
-async def submit_followup(
-    report_id: str,
-    body: FollowUpRequest,
-    db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_patient),
-):
-    """Submit a follow-up update for an existing assessment."""
-    result = await db.execute(
-        select(Report)
-        .options(selectinload(Report.doctor_review))
-        .where(
-            Report.id == report_id,
-            Report.patient_id == user.id,   # ensure ownership
-        )
-    )
-    report = result.scalar_one_or_none()
-    if not report:
-        raise HTTPException(404, "Report not found or does not belong to you")
-
-    followup = FollowUp(
-        report_id=report.id,
-        glucose=body.glucose,
-        systolic_bp=body.systolic_bp,
-        diastolic_bp=body.diastolic_bp,
-        weight=body.weight,
-        feeling=body.feeling,
-        symptoms=body.symptoms or "",
-    )
-    db.add(followup)
-
-    # Notify doctor if assessment has been reviewed
-    if report.doctor_review:
-        # Find original reviewing doctor
-        db.add(Notification(
-            user_id=report.doctor_review.doctor_id,
-            type="followup_submitted",
-            title=f"Follow-Up — {user.name}",
-            message=f"{user.name} submitted a follow-up update. Feeling: {body.feeling}.",
-            action_page="doc-review",
-            report_id=report.id,
-        ))
-
-    await db.commit()
-    return {"ok": True, "followup_id": followup.id}
-
-
+    
+    
+# Endpoint for patients to view doctor's notes and recommendations for their reviewed assessments
 @router.get("/doctor-notes")
 async def get_doctor_notes(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_patient),
 ):
-    """
-    Returns all reviewed reports for the authenticated patient,
-    including the doctor's full profile, AI predictions, risk overrides,
-    diagnosis, and recommendations.
-    """
     result = await db.execute(
         select(Report)
         .options(
@@ -495,3 +507,161 @@ async def get_doctor_notes(
         "notes": [_shape(r) for r in reports],
         "total": len(reports),
     }
+    
+# Endpoint for patients to submit follow-up updates after doctor's review and track their follow-up status and history
+@router.get("/followup-status")
+async def get_followup_status(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_patient),
+):
+    # Latest report (with doctor review if it exists)
+    latest_result = await db.execute(
+        select(Report)
+        .options(
+            selectinload(Report.doctor_review)
+                .selectinload(DoctorReview.doctor),
+            selectinload(Report.follow_ups),
+        )
+        .where(Report.patient_id == user.id)
+        .order_by(Report.created_at.desc())
+        .limit(1)
+    )
+    report: Report | None = latest_result.scalar_one_or_none()
+
+    if not report:
+        return {"latest_report": None, "previous_followups": []}
+
+    dr = report.doctor_review
+
+    # Shape response
+    shaped_report = {
+        "id":           report.id,
+        "submitted_at": report.created_at.isoformat() if report.created_at else None,
+        "status":       report.status,
+        "risk_level":   report.risk_level,
+        "followup_cycle_active": dr is not None,
+        "followup_submitted": len(report.follow_ups or []) > 0,
+        "latest_followup": (
+            sorted(report.follow_ups or [], key=lambda f: f.submitted_at)[-1].to_dict()
+            if report.follow_ups else None
+        ),
+        "can_submit_followup": (
+            report.status == "reviewed"
+            and len(report.follow_ups or []) == 0
+        ),
+        # Doctor review fields needed for countdown
+        "doctor_review": {
+            "doctor_name":     dr.doctor.name if getattr(dr, "doctor", None) else None,
+            "reviewed_at":     dr.reviewed_at.isoformat() if dr and dr.reviewed_at else None,
+            "follow_up_weeks": dr.follow_up_weeks if dr else None,
+            "diagnosis":       dr.diagnosis if dr else None,
+        } if dr else None,
+    }
+
+    # Last 5 follow-ups, newest first
+    sorted_followups = sorted(
+        report.follow_ups or [],
+        key=lambda f: f.submitted_at or datetime.min,
+        reverse=True,
+    )[:5]
+
+    previous_followups = [f.to_dict() for f in sorted_followups]
+    return {
+        "latest_report":      shaped_report,
+        "previous_followups": previous_followups,
+    }
+
+
+# Endpoint for patients to submit follow-up updates after doctor's review
+@router.post("/followup/{report_id}")
+async def submit_followup(
+    report_id: str,
+    body: FollowUpRequest,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_patient),
+):
+    """Submit a follow-up update for an existing assessment."""
+
+    # Fetch the report — eagerly load doctor_review
+    result = await db.execute(
+        select(Report)
+        .options(
+            selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
+            selectinload(Report.follow_ups)
+        )
+        .where(
+            Report.id == report_id,
+            Report.patient_id == user.id,
+        )
+    )
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(404, "Report not found or does not belong to you")
+
+    # Block multiple follow-ups per report
+    existing_followup = await db.execute(
+        select(FollowUp).where(FollowUp.report_id == report.id)
+    )
+    existing = existing_followup.scalar_one_or_none()
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail="Follow-up already submitted for this report"
+        )
+
+    # Save the follow-up
+    followup = FollowUp(
+        report_id    = report.id,
+        glucose      = body.glucose,
+        systolic_bp  = body.systolic_bp,
+        diastolic_bp = body.diastolic_bp,
+        weight       = body.weight,
+        feeling      = body.feeling,
+        symptoms     = body.symptoms or "",
+    )
+    db.add(followup)
+    await db.flush()  # get ID for the new follow-up
+
+    doctor_review = report.doctor_review
+    doctor_id = getattr(doctor_review, "doctor_id", None) if doctor_review else None
+
+    message = (
+        f"{user.name} submitted a follow-up update. "
+        f"Feeling: {body.feeling}. "
+        f"{'Symptoms: ' + body.symptoms if body.symptoms else ''}"
+    ).strip()
+
+    existing_notif_result = await db.execute(
+        select(Notification).where(
+            Notification.report_id == report.id,
+            Notification.type == "followup_submitted",
+        ).limit(1)
+    )
+    already_notified = existing_notif_result.scalar_one_or_none() is not None
+
+    if not already_notified:
+        if doctor_id:
+            db.add(Notification(
+                user_id=doctor_id,
+                type="followup_submitted",
+                title=f"Follow-Up Update — {user.name}",
+                message=message,
+                action_page="doc-followups",
+                report_id=report.id,
+            ))
+        else:
+            # Fallback: notify all doctors if no specific doctor is assigned
+            doctors_result = await db.execute(
+                select(User).where(User.role == "doctor")
+            )
+            for doctor in doctors_result.scalars():
+                db.add(Notification(
+                    user_id=doctor.id,
+                    type="followup_submitted",
+                    title=f"Follow-Up Update — {user.name}",
+                    message=message,
+                    action_page="doc-followups",
+                    report_id=report.id,
+                ))
+
+    await db.commit()

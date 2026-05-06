@@ -60,3 +60,4 @@ def require_role(required_role: str):
 # Example usage of the require_role dependency for an admin-only route
 require_patient = require_role("patient")
 require_doctor = require_role("doctor")
+require_admin = require_role("admin")

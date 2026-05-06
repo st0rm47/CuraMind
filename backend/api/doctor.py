@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from api.deps import require_doctor
+from models.followup import FollowUp
 from db.session import get_db
 from models.user import User
 from models.reports import Report
@@ -213,13 +214,15 @@ async def submit_review(
         review.diagnosis = body.diagnosis
         review.recommendations = body.recommendations
         review.risk_override = body.risk_override or {}
+        review.follow_up_weeks = body.follow_up_weeks or review.follow_up_weeks
     else:
         review = DoctorReview(
             report_id=body.report_id,
             doctor_id=user.id,
             diagnosis=body.diagnosis,
             recommendations=body.recommendations,
-            risk_override=body.risk_override or {}
+            risk_override=body.risk_override or {},
+            follow_up_weeks=body.follow_up_weeks or 4,
         )
         db.add(review)
 
@@ -250,22 +253,31 @@ async def get_corrections(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_doctor),
     page: int = 1,
-    limit: int = 30,
+    limit: int = 50,
+    
 ):
     """
-    All assessments where the doctor overrode at least one AI risk level.
-    Used for ML feedback learning.
+    All reviewed assessments — both with and without doctor risk overrides.
+    Used for audit trail and ML feedback learning.
     """
     offset = (page - 1) * limit
 
-    # Find reviews with non-empty risk_override
+    # FIX 1: fetch ALL reviews (not just ones with overrides) so the page
+    # can show the full correction history including "no override" rows.
+    # The frontend will visually distinguish overridden vs confirmed rows.
+    count_result = await db.execute(
+        select(func.count(DoctorReview.id))
+        .where(DoctorReview.doctor_id == user.id)   # scope to this doctor only
+    )
+    total = count_result.scalar_one()
+
     result = await db.execute(
         select(DoctorReview)
         .options(
             selectinload(DoctorReview.report).selectinload(Report.patient),
             selectinload(DoctorReview.doctor),
         )
-        .where(DoctorReview.risk_override != {})
+        .where(DoctorReview.doctor_id == user.id)   # scope to this doctor only
         .order_by(DoctorReview.reviewed_at.desc())
         .offset(offset)
         .limit(limit)
@@ -274,23 +286,96 @@ async def get_corrections(
 
     corrections = []
     for r in reviews:
-        a = r.report
-        for disease, override in r.risk_override.items():
-            original_score = a.predictions.get(disease, 0) if a.predictions else 0
-            corrections.append({
-                "review_id": r.id,
-                "report_id": a.id,
-                "patient_name": a.patient.name if a.patient else "Unknown",
-                "doctor_name": r.doctor.name if r.doctor else "Unknown",
-                "disease": disease,
-                "ai_score": original_score,
-                "doctor_override": override,
-                "reviewed_at": r.reviewed_at.isoformat(),
+        report = r.report
+        if not report:
+            continue
+
+        has_overrides = bool(r.risk_override)
+
+        # FIX 2: pull ai_risk_level from report.result/predictions so the frontend
+        # can show AI level → doctor level, not just a raw score.
+        # predictions dict may store {"disease": score} or {"disease": {"probability": x, "risk_level": y}}
+        predictions_raw = report.predictions or {}
+
+        
+        if has_overrides:
+            # Build per-disease rows only if there are overrides
+            for disease, doctor_override in r.risk_override.items():
+                    pred_val = predictions_raw.get(disease, 0)
+
+                    # Support both flat score and nested dict formats
+                    if isinstance(pred_val, dict):
+                        ai_score      = pred_val.get("probability", 0)
+                        ai_risk_level = pred_val.get("risk_level", None)
+                    else:
+                        ai_score      = pred_val
+                        ai_risk_level = None   # will be derived from score on the frontend
+
+                    # FIX 3: normalise score to 0-100
+                    if isinstance(ai_score, float) and ai_score <= 1:
+                        ai_score = round(ai_score * 100, 1)
+                    else:
+                        ai_score = round(float(ai_score), 1)
+
+                    corrections.append({
+                        "review_id":        r.id,
+                        "report_id":        report.id,
+                        "patient_name":     report.patient.name if report.patient else "Unknown",
+                        "doctor_name":      r.doctor.name if r.doctor else "Unknown",
+                        "disease":          disease,
+                        "ai_score":         ai_score,
+                        "ai_risk_level":    ai_risk_level,       # NEW: AI's original classification
+                        "doctor_override":  doctor_override,
+                        "overall_risk":     report.risk_level,
+                        "confidence":       round(report.ensemble_confidence * 100, 1)
+                                            if report.ensemble_confidence and report.ensemble_confidence <= 1
+                                            else report.ensemble_confidence,
+                        "created_at":      report.created_at.isoformat() if report.created_at else None,
+                        "has_override":     True,
+                        "diagnosis":        r.diagnosis,
+                     })
+        else:
+            # show all AI predictions even if doctor confirmed them
+            for disease, pred_val in predictions_raw.items():
+
+                # support nested dict or raw number
+                if isinstance(pred_val, dict):
+                    ai_score = pred_val.get("probability", 0)
+                    ai_risk_level = pred_val.get("risk_level", report.risk_level)
+                else:
+                    ai_score = pred_val
+                    ai_risk_level = report.risk_level
+
+                # normalize score
+                if isinstance(ai_score, float) and ai_score <= 1:
+                    ai_score = round(ai_score * 100, 1)
+                else:
+                    ai_score = round(float(ai_score), 1)
+                    
+                corrections.append({
+                    "review_id":       r.id,
+                    "report_id":       report.id,
+                    "patient_name":    report.patient.name if report.patient else "Unknown",
+                    "doctor_name":     r.doctor.name if r.doctor else "Unknown",
+                    "disease":         "",        # no specific disease override
+                    "ai_score":        ai_score,                      # no specific score to override
+                    "ai_risk_level":   ai_risk_level,
+                    "doctor_override": None,
+                    "overall_risk":    report.risk_level,
+                    "confidence":      round(report.ensemble_confidence * 100, 1)
+                                    if report.ensemble_confidence and report.ensemble_confidence <= 1
+                                    else report.ensemble_confidence,
+                    "created_at":      report.created_at.isoformat() if report.created_at else None,
+                    "has_override":    False,
+                    "diagnosis":       r.diagnosis,
             })
 
-    return {"corrections": corrections, "total": len(corrections)}
-
-
+    return {
+        "corrections": corrections,
+        "total":       total,
+        "page":        page,
+        "pages":       max(1, -(-total // limit)),  # ceiling division
+    }
 
 # Endpoint for doctors to view analytics and aggregate statistics for their dashboard.
 @router.get("/analytics")
@@ -344,4 +429,84 @@ async def analytics(
         "reviewed": reviewed,
         "high_risk_patients": high_risk_count,
         "average_risks": avg_risks,
+    }
+
+@router.get("/followups")
+async def get_doctor_followups(
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(require_doctor),
+    page: int = 1,
+    limit: int = 20,
+):
+    """
+    Returns all patient follow-up submissions across all reports,
+    newest first — doctors see every follow-up, not just their own cases.
+    """
+    offset = (page - 1) * limit
+ 
+    # Total count — all follow-ups in the system
+    count_result = await db.execute(
+        select(func.count(FollowUp.id))
+    )
+    total = count_result.scalar() or 0
+ 
+    # Fetch with report + patient context
+    result = await db.execute(
+        select(FollowUp)
+        .options(
+            selectinload(FollowUp.report).selectinload(Report.patient),
+            selectinload(FollowUp.report).selectinload(Report.doctor_review).selectinload(DoctorReview.doctor),
+        )
+        .order_by(FollowUp.submitted_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    followups = result.scalars().all()
+ 
+    def _score(val) -> float:
+        if isinstance(val, dict):
+            s = float(val.get("probability", 0))
+        else:
+            s = float(val or 0)
+        return round(s * 100 if s <= 1 else s, 1)
+ 
+    def _shape(f: FollowUp) -> dict:
+        r = f.report
+        p = r.patient if r else None
+        dr = r.doctor_review if r else None
+ 
+        conf = r.ensemble_confidence or 0 if r else 0
+        if conf <= 1:
+            conf = round(conf * 100, 1)
+ 
+        return {
+            "id":           f.id,
+            "submitted_at": f.submitted_at.isoformat() if f.submitted_at else None,
+            "glucose":      f.glucose,
+            "systolic_bp":  f.systolic_bp,
+            "diastolic_bp": f.diastolic_bp,
+            "weight":       f.weight,
+            "feeling":      f.feeling,
+            "symptoms":     f.symptoms,
+            "report": {
+                "id":           r.id,
+                "risk_level":   r.risk_level,
+                "confidence":   conf,
+                "submitted_at": r.created_at.isoformat() if r.created_at else None,
+                "status":       r.status,
+            } if r else None,
+            "patient": {
+                "id":   p.id,
+                "name": p.name,
+            } if p else None,
+            # Tell the frontend whether this case has been reviewed yet
+            "reviewed_by": dr.doctor.name if (dr and getattr(dr, "doctor", None)) else None,
+        }
+ 
+    return {
+        "items": [_shape(f) for f in followups],
+        "total": total,
+        "page":  page,
+        "limit": limit,
+        "pages": (total + limit - 1) // limit if total else 1,
     }

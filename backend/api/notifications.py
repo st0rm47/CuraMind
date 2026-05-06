@@ -75,7 +75,7 @@ async def mark_notification_as_read(
     await db.commit()
     return {"message": "Notification marked as read"}
 
-
+# Endpoint to mark all notifications as read
 @router.patch("/read-all")
 async def mark_all_notifications_as_read(
     db: AsyncSession = Depends(get_db),
