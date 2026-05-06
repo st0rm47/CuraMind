@@ -8,7 +8,7 @@ from fastapi import Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 
-from api import auth, patient, doctor, notifications
+from api import auth, patient, doctor, notifications, admin
 
 # Create a FastAPI instance
 app = FastAPI(title = "CuraMind")
@@ -38,3 +38,6 @@ app.include_router(doctor.router)
 
 # Include the notifications router from the notifications module
 app.include_router(notifications.router)
+
+# Include the admin router from the admin module
+app.include_router(admin.router)
