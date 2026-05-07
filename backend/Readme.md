@@ -6,6 +6,7 @@
 ```
 backend/
 ├──api
+|  ├── admin.py             # Admin-related endpoints
 │  ├── auth.py              # Authentication endpoints
 │  ├── patient.py           # Patient-related endpoints
 │  ├── doctor.py            # Doctor-related endpoints
@@ -24,6 +25,7 @@ backend/
 |  └── followup.py          # Follow-up model
 |
 ├── schemas
+|  ├── admin.py             # Pydantic schemas for admin operations
 │  ├── auth.py              # Pydantic schemas for authentication
 │  ├── patient.py           # Pydantic schemas for patient data
 │  ├── doctor.py            # Pydantic schemas for doctor data
@@ -31,6 +33,7 @@ backend/
 |  └── pagination.py        # Pydantic schemas for pagination
 |
 ├── services
+|  ├── heart_disease_model.pkl  # Pre-trained machine learning model for heart disease prediction
 │  ├── ml_engine.py                # Machine learning model integration
 |
 ├── db
