@@ -205,28 +205,30 @@ function NoteCard({ note }: { note: DoctorNote }) {
 
       {/* ── AI Predictions + Doctor Risk Corrections — side by side ────────── */}
       {(predEntries.length > 0 || hasOverrides) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 items-stretch">
 
-          {/* AI Predictions */}
+          {/* ── LEFT: AI Predictions ── */}
           {predEntries.length > 0 && (
-            <div>
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">
-                AI Predictions
+            <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4">
+              {/* Header */}
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex-shrink-0">
+                🤖 AI Predictions
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Disease grid — grows to fill remaining height */}
+              <div className="grid grid-cols-2 gap-2 flex-1 content-start">
                 {predEntries.map(([rawKey, pred]) => {
-                  const key      = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
-                  const meta     = key ? DISEASE_META[key] : null
-                  const color    = riskColor(pred.risk_level)
-                  const pct      = Math.round(pred.probability)
+                  const key        = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
+                  const meta       = key ? DISEASE_META[key] : null
+                  const color      = riskColor(pred.risk_level)
+                  const pct        = Math.round(pred.probability)
                   const overridden = note.risk_overrides[rawKey]
 
                   return (
                     <div
                       key={rawKey}
-                      className="rounded-xl bg-gray-800/40 border border-gray-700/30 px-3 py-3 relative"
+                      className="rounded-xl bg-gray-800/60 border border-gray-700/30 px-3 py-3 relative"
                     >
-                      {/* Amber dot = doctor overrode this */}
+                      {/* Amber dot = doctor overrode this disease */}
                       {overridden && (
                         <div
                           className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400"
@@ -234,8 +236,8 @@ function NoteCard({ note }: { note: DoctorNote }) {
                         />
                       )}
                       <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-base">{meta?.icon ?? '🔬'}</span>
-                        <span className="text-[11px] font-semibold text-gray-200 truncate">
+                        <span className="text-sm">{meta?.icon ?? '🔬'}</span>
+                        <span className="text-[11px] font-semibold text-gray-200 truncate leading-tight">
                           {meta?.name ?? pred.disease_name ?? rawKey}
                         </span>
                       </div>
@@ -262,79 +264,89 @@ function NoteCard({ note }: { note: DoctorNote }) {
                   )
                 })}
               </div>
-            </div>
-          )}
-
-          {/* Doctor Risk Corrections */}
-          {hasOverrides ? (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                  Doctor Risk Corrections
-                </p>
-                <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">
-                  AI overridden
-                </span>
-              </div>
-              <div className="space-y-2">
-                {overrideEntries.map(([rawKey, override]) => {
-                  const key      = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
-                  const meta     = key ? DISEASE_META[key] : null
-                  const aiColor  = riskColor(override.ai_risk)
-                  const docColor = riskColor(override.doctor_risk)
-
-                  return (
-                    <div
-                      key={rawKey}
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15"
-                    >
-                      <span className="text-base flex-shrink-0">{meta?.icon ?? '🔬'}</span>
-                      <span className="text-[13px] font-semibold text-gray-200 flex-1 min-w-0 truncate">
-                        {meta?.name ?? rawKey}
-                      </span>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full line-through opacity-60"
-                          style={{ background: `${aiColor}18`, color: aiColor }}
-                        >
-                          {riskLabel(override.ai_risk)}
-                        </span>
-                        <span className="text-gray-600 text-xs">→</span>
-                        <span
-                          className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                          style={{ background: `${docColor}22`, color: docColor }}
-                        >
-                          {riskLabel(override.doctor_risk)}
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-              <p className="text-[10px] text-gray-600 mt-2 leading-relaxed">
-                Your doctor reviewed the AI predictions and updated the risk levels above
-                based on their clinical assessment.
+              {/* Legend for amber dot */}
+              <p className="text-[9px] text-gray-600 mt-3 flex-shrink-0 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+                Dot indicates doctor issued a correction
               </p>
             </div>
-          ) : (
-            /* No overrides — show a confirmation panel instead of blank space */
-            predEntries.length > 0 && (
-              <div>
-                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">
-                  Doctor Risk Corrections
-                </p>
-                <div className="h-full flex items-center justify-center rounded-xl bg-teal-500/5 border border-teal-500/15 px-4 py-8 text-center">
-                  <div>
-                    <p className="text-2xl mb-2">✓</p>
-                    
-                    <p className="text-[11px] text-gray-500 leading-relaxed">
-                      Your doctor agreed with all AI predictions.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )
           )}
+
+          {/* ── RIGHT: Doctor Risk Corrections ── */}
+          <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4">
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                🩺 Doctor Risk Corrections
+              </p>
+              {hasOverrides && (
+                <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">
+                  {overrideEntries.length} override{overrideEntries.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {hasOverrides ? (
+              <>
+                {/* Override rows */}
+                <div className="space-y-2 flex-1">
+                  {overrideEntries.map(([rawKey, override]) => {
+                    const key      = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
+                    const meta     = key ? DISEASE_META[key] : null
+                    const aiColor  = riskColor(override.ai_risk)
+                    const docColor = riskColor(override.doctor_risk)
+
+                    return (
+                      <div
+                        key={rawKey}
+                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15"
+                      >
+                        <span className="text-base flex-shrink-0">{meta?.icon ?? '🔬'}</span>
+                        <span className="text-[12px] font-semibold text-gray-200 flex-1 min-w-0 truncate">
+                          {meta?.name ?? rawKey}
+                        </span>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full line-through opacity-50"
+                            style={{ background: `${aiColor}18`, color: aiColor }}
+                          >
+                            {riskLabel(override.ai_risk)}
+                          </span>
+                          <span className="text-gray-600 text-[11px]">→</span>
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: `${docColor}22`, color: docColor }}
+                          >
+                            {riskLabel(override.doctor_risk)}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <p className="text-[9px] text-gray-600 mt-3 flex-shrink-0 leading-relaxed">
+                  Your doctor reviewed the AI predictions and updated the risk levels above
+                  based on their clinical assessment.
+                </p>
+              </>
+            ) : (
+              /* No overrides — centred confirmation fills the full panel height */
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
+                  style={{ background: 'rgba(0,212,168,0.1)' }}
+                >
+                  <span className="text-xl">✓</span>
+                </div>
+                <p className="text-[13px] font-semibold text-teal-400 mb-1">
+                  No corrections made
+                </p>
+                <p className="text-[11px] text-gray-500 leading-relaxed max-w-[180px]">
+                  Your doctor agreed with all AI risk predictions.
+                </p>
+              </div>
+            )}
+          </div>
 
         </div>
       )}
@@ -342,10 +354,10 @@ function NoteCard({ note }: { note: DoctorNote }) {
       {/* ── Divider ───────────────────────────────────────────────────────── */}
       <div className="h-px bg-gray-800 mb-6" />
 
-      {/* Clinical Diagnosis */}
+      {/* ── Clinical Diagnosis ────────────────────────────────────────────── */}
       {note.diagnosis && (
         <div
-          className="bg-gray-800/50  p-4 mb-3"
+          className="bg-gray-800/50 rounded-xl p-4 mb-3"
           style={{ borderLeft: '3px solid #00d4a8' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-teal-400 mb-2">
@@ -357,10 +369,10 @@ function NoteCard({ note }: { note: DoctorNote }) {
         </div>
       )}
 
-      {/* Recommendations */}
+      {/* ── Recommendations ───────────────────────────────────────────────── */}
       {note.recommendations && (
         <div
-          className="bg-gray-800/50  p-4 mb-3"
+          className="bg-gray-800/50 rounded-xl p-4 mb-3"
           style={{ borderLeft: '3px solid #4da3ff' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-blue-400 mb-2">
@@ -372,10 +384,10 @@ function NoteCard({ note }: { note: DoctorNote }) {
         </div>
       )}
 
-      {/* Follow-up */}
+      {/* ── Follow-up ─────────────────────────────────────────────────────── */}
       {note.follow_up_weeks != null && (
         <div
-          className="bg-gray-800/50  p-4"
+          className="bg-gray-800/50 rounded-xl p-4"
           style={{ borderLeft: '3px solid #ffbe3d' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400 mb-2">
@@ -386,6 +398,7 @@ function NoteCard({ note }: { note: DoctorNote }) {
             <span className="font-semibold text-amber-300">
               {note.follow_up_weeks} week{note.follow_up_weeks !== 1 ? 's' : ''}
             </span>
+            . Submit updated health parameters as directed by your doctor before the visit.
           </p>
         </div>
       )}
