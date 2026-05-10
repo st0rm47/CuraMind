@@ -17,7 +17,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           className={clsx(
-            'form-input pr-10',   // ALWAYS reserve space
+            'form-input ',   // ALWAYS reserve space
             error && 'form-input-error',
             className
           )}
