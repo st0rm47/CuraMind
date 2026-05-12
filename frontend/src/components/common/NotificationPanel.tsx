@@ -1,7 +1,7 @@
 // src/components/common/NotificationPanel.tsx
 import { useState, useEffect } from "react";
 import clsx from "clsx";
-import { formatRelative } from "@/utils/formatDate";
+import { formatDateTime, formatRelative, formatRelativeAsia } from "@/utils/formatDate";
 import type { Notification } from "@/types/doctor";
 import {
   getNotificationsApi,
@@ -125,7 +125,7 @@ export default function NotificationPanel({
                   {n.message}
                 </p>
                 <p className="text-[10px] text-gray-600 font-mono mt-1">
-                  {formatRelative(n.timestamp)}
+                  {formatRelativeAsia(n.timestamp)}
                 </p>
               </div>
               {!n.is_read && (
