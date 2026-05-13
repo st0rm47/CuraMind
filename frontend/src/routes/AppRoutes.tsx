@@ -6,64 +6,98 @@ import { useAuth } from '@/hooks/useAuth'
 import AppLayout from '@/components/layout/AppLayout'
 
 // Auth pages
-import Login    from '@/pages/auth/Login'
-import Register from '@/pages/auth/Register'
+import LandingPage from '@/pages/LandingPage'
+import Login       from '@/pages/auth/Login'
+import Register    from '@/pages/auth/Register'
 
 // Patient pages
 import PatientDashboard from '@/pages/patient/Dashboard'
 import HealthInput      from '@/pages/patient/HealthInput'
 import Predictions      from '@/pages/patient/Predictions'
 import RiskFactors      from '@/pages/patient/Risk'
-import Progress from '@/pages/patient/Progress'
-import FollowUp from '@/pages/patient/Followup'
-import DoctorNotes from '@/pages/patient/Doctornotes'
-
+import Progress         from '@/pages/patient/Progress'
+import FollowUp         from '@/pages/patient/Followup'
+import DoctorNotes      from '@/pages/patient/Doctornotes'
 
 // Doctor pages
 import DoctorDashboard from '@/pages/doctor/Dashboard'
 import DoctorQueue     from '@/pages/doctor/Queue'
 import DoctorReview    from '@/pages/doctor/Review'
+import DoctorFollowUps from '@/pages/doctor/DoctorFollowup'
+import Corrections       from '@/pages/doctor/Corrections'
 
 // 404
 import NotFound from '@/pages/NotFound'
-// import PatientReports from '@/pages/patient/Reports'
+import AdminDashboard from '@/pages/admin/AdminDashboard'
 
-/** Redirects unauthenticated users to /login */
+// ─── Guards ───────────────────────────────────────────────────────────────────
+
+/**
+ * Redirects unauthenticated users to /login.
+ * While auth is still loading, renders nothing (FullPageSpinner handled in App.tsx).
+ */
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
-  if (isLoading) return null  // handled by FullPageSpinner in App.tsx
+  if (isLoading) return null
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
 }
 
-/** Redirects a specific role away from pages they don't own */
-function RoleRoute({ allowedRoles, children }: { allowedRoles: string[]; children: React.ReactNode }) {
+/**
+ * Redirects a user whose role is not in allowedRoles back to their own dashboard.
+ * Does NOT log them out — they are still authenticated.
+ */
+function RoleRoute({
+  allowedRoles,
+  children,
+}: {
+  allowedRoles: string[]
+  children: React.ReactNode
+}) {
   const { user } = useAuth()
-
   if (!user || !allowedRoles.includes(user.role)) {
-    return <Navigate to="/login" replace />
+    // Send them to the correct dashboard rather than /login
+    const fallback =
+      user?.role === 'doctor' ? '/doctor/dashboard'
+      : user?.role === 'admin' ? '/admin/dashboard'
+      : '/patient/dashboard'
+    return <Navigate to={fallback} replace />
   }
-
   return <>{children}</>
 }
+
+// ─── Routes ───────────────────────────────────────────────────────────────────
 
 export default function AppRoutes() {
   const { isAuthenticated, user } = useAuth()
 
+  const dashboardPath =
+    user?.role === 'doctor' ? '/doctor/dashboard'
+    : user?.role === 'admin' ? '/admin/dashboard'
+    : '/patient/dashboard'
+    
   return (
     <BrowserRouter>
       <Routes>
-        {/* ── Public ── */}
+
+        {/* ── Landing page — always public, never logs the user out ── */}
+        <Route path="/" element={<LandingPage />} />
+
+        {/* ── Auth pages — redirect to dashboard if already logged in ── */}
         <Route
           path="/login"
-          element={isAuthenticated
-            ? <Navigate to={user?.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'} replace />
-            : <Login />}
+          element={
+            isAuthenticated
+              ? <Navigate to={dashboardPath} replace />
+              : <Login />
+          }
         />
         <Route
           path="/register"
-          element={isAuthenticated
-            ? <Navigate to={user?.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'} replace />
-            : <Register />}
+          element={
+            isAuthenticated
+              ? <Navigate to={dashboardPath} replace />
+              : <Register />
+          }
         />
 
         {/* ── Authenticated shell ── */}
@@ -74,23 +108,11 @@ export default function AppRoutes() {
             </PrivateRoute>
           }
         >
-          {/* Root redirect */}
-          <Route
-            index
-            element={
-              <Navigate
-                to={user?.role === 'doctor' ? '/doctor/dashboard' : '/patient/dashboard'}
-                replace
-              />
-            }
-          />
-
           {/* ── Patient routes ── */}
           <Route
             path="/patient/dashboard"
             element={<RoleRoute allowedRoles={['patient']}><PatientDashboard /></RoleRoute>}
           />
-                    
           <Route
             path="/patient/healthinput"
             element={<RoleRoute allowedRoles={['patient']}><HealthInput /></RoleRoute>}
@@ -99,27 +121,22 @@ export default function AppRoutes() {
             path="/patient/predictions"
             element={<RoleRoute allowedRoles={['patient']}><Predictions /></RoleRoute>}
           />
-
           <Route
             path="/patient/risk"
             element={<RoleRoute allowedRoles={['patient']}><RiskFactors /></RoleRoute>}
-          /> 
-
+          />
           <Route
             path="/patient/progress"
             element={<RoleRoute allowedRoles={['patient']}><Progress /></RoleRoute>}
           />
-
           <Route
             path="/patient/followup"
             element={<RoleRoute allowedRoles={['patient']}><FollowUp /></RoleRoute>}
           />
-
           <Route
             path="/patient/notes"
             element={<RoleRoute allowedRoles={['patient']}><DoctorNotes /></RoleRoute>}
-          /> 
-
+          />
 
           {/* ── Doctor routes ── */}
           <Route
@@ -134,18 +151,25 @@ export default function AppRoutes() {
             path="/doctor/review"
             element={<RoleRoute allowedRoles={['doctor']}><DoctorReview /></RoleRoute>}
           />
-          {/* <Route
-            path="/doctor/review/:assessmentId"
-            element={<RoleRoute allowedRoles={['doctor']}><DoctorReview /></RoleRoute>}
-          /> */}
-          {/* <Route
+          <Route
+            path="/doctor/followups"
+            element={<RoleRoute allowedRoles={['doctor']}><DoctorFollowUps /></RoleRoute>}
+          />
+          <Route
             path="/doctor/corrections"
-            element={<RoleRoute allowedRoles={['doctor']}><DoctorCorrections /></RoleRoute>}
-          /> */}
+            element={<RoleRoute allowedRoles={['doctor']}><Corrections /></RoleRoute>}
+           />
+
+          {/* ── Admin routes (if implemented) ── */}
+          <Route  
+            path="/admin/dashboard"
+            element={<RoleRoute allowedRoles={['admin']}><AdminDashboard /></RoleRoute>}
+              />
         </Route>
 
-        {/*Not found*/}
+        {/* 404 */}
         <Route path="*" element={<NotFound />} />
+
       </Routes>
     </BrowserRouter>
   )

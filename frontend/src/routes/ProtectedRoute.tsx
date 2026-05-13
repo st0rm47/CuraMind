@@ -7,7 +7,7 @@ export default function ProtectedRoute() {
 
   // Not logged in
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+    return <Navigate to="/" replace state={{ from: location }} />
   }
 
   // Role-based protection (IMPORTANT)
@@ -19,6 +19,16 @@ export default function ProtectedRoute() {
 
   if (user?.role === "patient" && path.startsWith("/doctor")) {
     return <Navigate to="/patient/dashboard" replace />
+  }
+
+  // ✅ Block non-admins from /admin routes
+  if (user?.role !== "admin" && path.startsWith("/admin")) {
+    return <Navigate to={user?.role === "doctor" ? "/doctor/dashboard" : "/patient/dashboard"} replace />
+  }
+
+  // ✅ Block admins from /patient and /doctor routes
+  if (user?.role === "admin" && (path.startsWith("/patient") || path.startsWith("/doctor"))) {
+    return <Navigate to="/admin/dashboard" replace />
   }
 
   return <Outlet />
