@@ -7,6 +7,7 @@ import type {
   HealthParams,
   FollowUp,
   PaginatedResponse,
+  FeelingStatus,
 } from '@/types/report'
 import type { Notification, NotifCountResponse } from '@/types/doctor'
 import { DashboardResponse } from '@/types/dashboard'
@@ -54,22 +55,29 @@ export const getShapValuesApi = async () => {
   return res.data;
 };
 
-export async function getHistoryApi(
-  page = 1,
-  limit = 20,
-): Promise<PaginatedResponse<Assessment>> {
-  const { data } = await api.get<PaginatedResponse<Assessment>>('/patient/history', {
-    params: { page, limit },
-  })
-  return data
-}
+// export async function getHistoryApi(
+//   page = 1,
+//   limit = 20,
+// ): Promise<PaginatedResponse<Assessment>> {
+//   const { data } = await api.get<PaginatedResponse<Assessment>>('/patient/history', {
+//     params: { page, limit },
+//   })
+//   return data
+// }
 
 /**
  * POST /patient/followup/:assessment_id
  */
 export async function submitFollowUpApi(
   assessmentId: string,
-  payload: Omit<FollowUp, 'id' | 'assessment_id' | 'submitted_at'>,
+  payload: {
+    glucose?:      number
+    systolic_bp?:  number
+    diastolic_bp?: number   // ← added
+    weight?:       number
+    feeling:       FeelingStatus
+    symptoms?:     string
+  },
 ): Promise<{ ok: boolean }> {
   const { data } = await api.post<{ ok: boolean }>(
     `/patient/followup/${assessmentId}`,
