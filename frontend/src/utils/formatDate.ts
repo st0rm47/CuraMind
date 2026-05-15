@@ -12,13 +12,13 @@ export function formatDate(ts: string | null | undefined): string {
 }
 
 /** "Apr 27, 2026 · 2:30 PM" */
-export function formatDateTime(ts: string | null | undefined): string {
-  if (!ts) return '—'
-  try {
-    const d = parseISO(ts)
-    return isValid(d) ? format(d, "MMM d, yyyy |  h:mm a") : '—'
-  } catch { return '—' }
-}
+// export function formatDateTime(ts: string | null | undefined): string {
+//   if (!ts) return '—'
+//   try {
+//     const d = parseISO(ts)
+//     return isValid(d) ? format(d, "MMM d, yyyy |  h:mm a") : '—'
+//   } catch { return '—' }
+// }
 
 /** "3 hours ago" */
 export function formatRelative(ts: string | null | undefined): string {
@@ -35,4 +35,45 @@ export function formatFull(ts?: string): string {
     const d = ts ? parseISO(ts) : new Date()
     return format(d, 'EEEE, MMMM d, yyyy')
   } catch { return new Date().toDateString() }
+}
+
+export function parseUtc(ts: string) {
+  return new Date(ts.replace(' ', 'T') + 'Z')
+}
+
+export function formatDateTime(ts: string | null | undefined): string {
+  if (!ts) return '—'
+
+  try {
+    const d = parseUtc(ts)
+
+    return isValid(d)
+      ? d.toLocaleString('en-US', {
+          timeZone: 'Asia/Kathmandu',
+          year: 'numeric',
+          month: 'short',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : '—'
+  } catch {
+    return '—'
+  }
+}
+
+export function formatRelativeAsia(ts: string | null | undefined): string {
+  if (!ts) return '—'
+
+  try {
+    const d = parseUtc(ts)
+
+    if (!isValid(d)) return '—'
+
+    return formatDistanceToNow(d, {
+      addSuffix: true,
+    })
+  } catch {
+    return '—'
+  }
 }
