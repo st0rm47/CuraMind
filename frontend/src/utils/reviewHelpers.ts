@@ -102,3 +102,96 @@ export function validateReviewForm(form: { diagnosis: string; recommendations: s
     errors.recommendations = 'Enter detailed recommendations (min 10 characters)'
   return errors
 }
+
+export function formatParamValue(label: string, value: any): string {
+  if (value === null || value === undefined) return '-'
+
+  // Chest pain mapping
+  if (label === 'Chest Pain Type') {
+    const map: Record<string, string> = {
+      TA: 'Chest pain during activity',
+      ATA: 'Unusual chest discomfort',
+      NAP: 'Mild / non-heart related pain',
+      ASY: 'No chest pain',
+    }
+    return map[value] ?? value
+  }
+
+  // Angina mapping
+  if (label === 'Exercise Angina') {
+    const map: Record<string, string> = {
+      Y: 'Yes',
+      N: 'No',
+    }
+    return map[value] ?? value
+  }
+
+  // ECG mapping
+  if (label === 'Resting ECG') {
+    const map: Record<string, string> = {
+      Normal: 'Normal',
+      ST: 'Minor irregularity',
+      LVH: 'Possible heart strain',
+    }
+    return map[value] ?? value
+  }
+
+  // Fasting blood sugar (0/1 → interpretation)
+  if (label === 'Fasting BS') {
+    const map: Record<string, string> = {
+      1: '> 120 ',
+      0: '≤ 120 '
+    }
+    return map[value] ?? value
+  }
+
+  if (label === 'ST Slope') {
+    const map: Record<string, string> = {
+      Up: 'Good Recovery',
+      Flat: 'Slow Recovery',
+      Down: 'Poor Recovery',
+    }
+    return map[value] ?? value
+  }
+
+  if (label === 'Smoking Status') {
+    const map: Record<string, string> = {
+      never: 'Non-smoker',
+      former: 'Former smoker',
+      current: 'Current smoker',
+    }
+    return map[value] ?? value
+  }
+
+  if (label === 'Alcohol') {
+    const map: Record<string, string> = {
+      none: 'No alcohol',
+      ocasional: 'Occasional',
+      moderate: 'Moderate',
+      high: 'Frequent',
+    }
+    return map[value] ?? value
+  }
+
+  if (label === 'Physical Activity') {
+    const map: Record<string, string> = {
+      none: 'No activity',
+      low: 'Low activity',
+      moderate: 'Moderate activity',
+      high: 'High activity',
+    }
+    return map[value] ?? value
+  }
+
+  if (label === 'Family History') {
+    const map: Record<string, string> = {
+      none: 'No Known Conditions',
+      heart_disease: 'Heart Disease',
+      diabetes: 'Diabetes',
+      both: 'Both Heart Disease and Diabetes',
+    }
+    return map[value] ?? value
+  }
+
+  return String(value)
+}
