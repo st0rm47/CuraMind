@@ -1,6 +1,6 @@
 // src/types/user.ts
 
-export type UserRole = 'patient' | 'doctor' 
+export type UserRole = 'patient' | 'doctor' | 'admin'  // Added 'admin' role 
 export type Gender   = 'male' | 'female' | 'other'
 
 export interface User {
