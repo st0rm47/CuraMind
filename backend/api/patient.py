@@ -1,7 +1,7 @@
 # This file contains the API endpoints for patient-related operations
 # It defines routes for patients to access their data and interact with the system.
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 from fastapi import APIRouter, Depends, HTTPException, params
@@ -213,7 +213,7 @@ async def assess_health(
     for doctor in doctors.scalars().all():
         notification = Notification(
             user_id=doctor.id,
-            type = "new Report",
+            type = "new_report",
             title = "New Patient Report - " + user.name,
             message=f"New report submitted by {user.name} with risk level {ml_result['risk_level']}.",
             action_page="doc-review",
@@ -243,7 +243,7 @@ async def get_latest_prediction(
     user: User = Depends(require_patient),
 ):
     
-    cutoff_time = datetime.utcnow() - timedelta(minutes=30)
+    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=30)
     result = await db.execute(
         select(Report)
         .where(
@@ -281,7 +281,7 @@ async def get_latest_shap(
     db: AsyncSession = Depends(get_db),
     user: User = Depends(require_patient),
 ):
-    cutoff_time = datetime.utcnow() - timedelta(minutes=30)
+    cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=30)
 
     result = await db.execute(
         select(Report)

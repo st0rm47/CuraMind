@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select, and_
+from sqlalchemy import func, select, and_ , cast, String
 from sqlalchemy.orm import selectinload
 from pydantic import BaseModel, EmailStr
 from typing import Optional
@@ -93,7 +93,7 @@ async def get_admin_stats(
 
     # High-risk: mirrors doctor dashboard logic exactly
     all_preds_result = await db.execute(
-        select(Report.predictions).where(Report.predictions != {})
+        select(Report.predictions).where(cast(Report.predictions, String) != '{}')
     )
     all_preds = [row[0] for row in all_preds_result if row[0]]
     high_risk_count = sum(

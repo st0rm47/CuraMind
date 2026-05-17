@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import func, select
+from sqlalchemy import func, select, cast, String
 from sqlalchemy.orm import selectinload
 
 from api.deps import require_doctor
@@ -44,7 +44,7 @@ async def get_doctor_dashboard(
 
     # ── 2. All predictions — for avg risks + high-risk count ──────────────────
     all_preds_result = await db.execute(
-        select(Report.predictions).where(Report.predictions != {})
+        select(Report.predictions).where(cast(Report.predictions, String) != '{}')
     )
     all_preds = [row[0] for row in all_preds_result if row[0]]
 
@@ -397,7 +397,7 @@ async def analytics(
     # Here we fetch recent and compute in Python
     recent_result = await db.execute(
         select(Report.predictions)
-        .where(Report.predictions != {})
+        .where(cast(Report.predictions, String) != '{}')
         .limit(500)
     )
     all_preds = [row[0] for row in recent_result if row[0]]
