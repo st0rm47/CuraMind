@@ -21,7 +21,7 @@ class Report(Base):
     
     # Health Parameters
     age: Mapped[int] = mapped_column(Integer)
-    gender: Mapped[str] = mapped_column(String(1))          # 1 for male, 0 for female
+    gender: Mapped[str] = mapped_column(String(10))          # 1 for male, 0 for female
     weight: Mapped[float] = mapped_column(Float)          # in kg
     height: Mapped[float] = mapped_column(Float)          # in cm
     bmi : Mapped[float] = mapped_column(Float)             # Body Mass Index
@@ -41,7 +41,7 @@ class Report(Base):
     resting_ecg: Mapped[str] = mapped_column(String(20))    # Resting electrocardiographic results
     resting_bp: Mapped[float] = mapped_column(Float)    # Resting blood pressure in mmHg
     st_slope: Mapped[str] = mapped_column(String(20))    # Slope of the peak exercise ST segment
-    exercise_angina: Mapped[str] = mapped_column(String(1))    # Exercise-induced angina (Y/N)
+    exercise_angina: Mapped[str] = mapped_column(String(3))    # Exercise-induced angina (Y/N)
     fasting_bs: Mapped[int] = mapped_column(Integer)    # Fasting blood sugar level in mg/dL
     max_hr: Mapped[float] = mapped_column(Float)    # Maximum heart rate achieved during exercise
     oldpeak: Mapped[float] = mapped_column(Float)    # ST depression induced by exercise relative to rest

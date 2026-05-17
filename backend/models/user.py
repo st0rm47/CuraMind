@@ -5,7 +5,7 @@
 from typing import Optional
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Boolean, String, Enum as SAEnum
+from sqlalchemy import Boolean, DateTime, String, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from db.base import Base
@@ -33,8 +33,8 @@ class User(Base):
     speciality: Mapped[Optional[str]] = mapped_column(String(255))
     license_number: Mapped[Optional[str]] = mapped_column(String(255))
     
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc))  # Timestamp for when the user was created
-    updated_at: Mapped[datetime] = mapped_column(default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))  # Timestamp for when the user was last updated
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)) # Timestamp for when the user was created
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))  # Timestamp for when the user was last updated
     
     # Relationships to other models (e.g., reports, reviews, notifications) can be defined here using SQLAlchemy relationships
     reports = relationship("Report", back_populates="patient", cascade="all, delete-orphan")  # Relationship to the reports created by the user (if patient)
