@@ -4,11 +4,15 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from .base import Base
 from core.config import settings
+import ssl
 
 # Create an asynchronous engine using the database URL from settings
 engine =  create_async_engine(
     settings.DATABASE_URL,
     echo=True,  # Enable SQL query logging for debugging
+    connect_args={
+        "ssl": ssl.create_default_context(),
+    },
     pool_pre_ping=True,  # Enable connection pre-ping to check if connections are alive
 )
 
