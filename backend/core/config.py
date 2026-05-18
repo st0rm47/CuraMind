@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False  # Debug mode flag, set to True for development and False for production
     
     DATABASE_URL: str  # Database connection URL, loaded from environment variable
-    SYNC_DATABASE_URL: str  # Synchronous database URL for Alembic migrations, loaded from environment variable
+    SYNC_DATABASE_URL: str | None = None  # Synchronous database URL for Alembic migrations, loaded from environment variable
     
     SECRET_KEY: str  # Secret key for security-related operations, loaded from environment variable
     ALGORITHM: str = "HS256"  # Algorithm used for token encoding (e.g., JWT)
