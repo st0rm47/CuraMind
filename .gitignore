@@ -85,7 +85,20 @@ Thumbs.db
 # Expo
 .expo/
 
+# Expo/React Native
+.expo-shared/
+.expo/web/cache/
 
+# TypeScript
+*.tsbuildinfo
+
+# Environment overrides
+.env.development.local
+.env.production.local
+
+# Temporary files
+*.tmp
+*.temp
 
 
 
