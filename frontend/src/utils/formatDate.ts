@@ -1,79 +1,57 @@
-// src/utils/formatDate.ts
-
 import { format, formatDistanceToNow, parseISO, isValid } from 'date-fns'
+import { toZonedTime } from 'date-fns-tz'
 
-/** "Apr 27, 2026" */
+const TZ = 'Asia/Kathmandu'
+
+/** Parse any ISO timestamp correctly — handles both +00:00 and naive strings */
+function parseTs(ts: string): Date {
+  // If it already has timezone info (+00:00 or Z), parseISO handles it correctly
+  // If it's naive (no timezone), treat it as UTC
+  const normalized = ts.includes('+') || ts.endsWith('Z')
+    ? ts
+    : ts.replace(' ', 'T') + 'Z'
+  return parseISO(normalized)
+}
+
+/** "Apr 27, 2026" — in Nepal time */
 export function formatDate(ts: string | null | undefined): string {
   if (!ts) return '—'
   try {
-    const d = parseISO(ts)
+    const d = toZonedTime(parseTs(ts), TZ)
     return isValid(d) ? format(d, 'MMM d, yyyy') : '—'
   } catch { return '—' }
 }
 
-/** "Apr 27, 2026 · 2:30 PM" */
-// export function formatDateTime(ts: string | null | undefined): string {
-//   if (!ts) return '—'
-//   try {
-//     const d = parseISO(ts)
-//     return isValid(d) ? format(d, "MMM d, yyyy |  h:mm a") : '—'
-//   } catch { return '—' }
-// }
+/** "Apr 27, 2026 · 2:30 PM" — in Nepal time */
+export function formatDateTime(ts: string | null | undefined): string {
+  if (!ts) return '—'
+  try {
+    const d = toZonedTime(parseTs(ts), TZ)
+    return isValid(d) ? format(d, 'MMM d, yyyy · h:mm a') : '—'
+  } catch { return '—' }
+}
 
 /** "3 hours ago" */
 export function formatRelative(ts: string | null | undefined): string {
   if (!ts) return '—'
   try {
-    const d = parseISO(ts)
+    const d = parseTs(ts)
     return isValid(d) ? formatDistanceToNow(d, { addSuffix: true }) : '—'
   } catch { return '—' }
 }
 
-/** "Monday, April 27, 2026" — used in dashboard headers */
+/** Alias used in some components */
+export const formatRelativeAsia = formatRelative
+
+/** "Monday, April 27, 2026" — used in dashboard headers, always Nepal time */
 export function formatFull(ts?: string): string {
   try {
-    const d = ts ? parseISO(ts) : new Date()
+    const d = ts ? toZonedTime(parseTs(ts), TZ) : toZonedTime(new Date(), TZ)
     return format(d, 'EEEE, MMMM d, yyyy')
   } catch { return new Date().toDateString() }
 }
 
-export function parseUtc(ts: string) {
-  return new Date(ts.replace(' ', 'T') + 'Z')
-}
-
-export function formatDateTime(ts: string | null | undefined): string {
-  if (!ts) return '—'
-
-  try {
-    const d = parseUtc(ts)
-
-    return isValid(d)
-      ? d.toLocaleString('en-US', {
-          timeZone: 'Asia/Kathmandu',
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : '—'
-  } catch {
-    return '—'
-  }
-}
-
-export function formatRelativeAsia(ts: string | null | undefined): string {
-  if (!ts) return '—'
-
-  try {
-    const d = parseUtc(ts)
-
-    if (!isValid(d)) return '—'
-
-    return formatDistanceToNow(d, {
-      addSuffix: true,
-    })
-  } catch {
-    return '—'
-  }
+/** @deprecated use parseTs internally — kept for any direct usage */
+export function parseUtc(ts: string): Date {
+  return parseTs(ts)
 }
