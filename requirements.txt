@@ -3,6 +3,7 @@ alembic==1.18.4
 annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
+asyncpg==0.31.0
 bcrypt==4.0.1
 click==8.3.3
 cloudpickle==3.1.2
@@ -25,6 +26,7 @@ numpy==2.4.4
 packaging==26.2
 pandas==3.0.2
 passlib==1.7.4
+psycopg2-binary==2.9.12
 pyasn1==0.6.3
 pydantic==2.13.3
 pydantic-settings==2.14.0
@@ -48,3 +50,4 @@ typing-inspection==0.4.2
 typing_extensions==4.15.0
 tzdata==2026.2
 uvicorn==0.46.0
+xgboost==3.2.0
