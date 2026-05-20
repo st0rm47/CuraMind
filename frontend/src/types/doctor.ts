@@ -44,7 +44,7 @@ export interface DoctorQueueResponse {
   pages:  number
 }
 
-// ── Dashboard ─────────────────────────────────────────────────────────────────
+// Dashboard
 export interface DashboardStats {
   total_assessments:  number
   pending:     number
@@ -59,7 +59,7 @@ export interface DoctorDashboardResponse {
   average_risks:   Record<DiseaseKey, number>
 }
 
-// ── Analytics (kept for other pages that still use getAnalyticsApi) ───────────
+// Analytics (kept for other pages that still use getAnalyticsApi)
 export interface AnalyticsSummary {
   total_assessments:  number
   pending:     number
@@ -68,7 +68,7 @@ export interface AnalyticsSummary {
   average_risks:      Record<DiseaseKey, number>
 }
 
-// ── Corrections ───────────────────────────────────────────────────────────────
+// Corrections 
 export interface CorrectionRecord {
   review_id:       string
   report_id:   string
@@ -85,7 +85,7 @@ export interface CorrectionsResponse {
   total:       number
 }
 
-// ── Notifications ─────────────────────────────────────────────────────────────
+// Notifications 
 export interface Notification {
   id:             string
   type:           'doctor_review' | 'followup_reminder' | 'new_assessment' | 'followup_submitted' | 'system'
