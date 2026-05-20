@@ -46,7 +46,7 @@
 
 ## Overview
 
-CuraMind bridges the gap between patients and physicians by providing an end-to-end platform for AI-assisted health assessment. Patients submit their clinical parameters and instantly receive machine-learning-generated risk predictions across multiple disease categories. Physicians can then review those predictions, issue corrections, write diagnoses, and track patient progress over time.
+CuraMind bridges the gap between patients and physicians by providing an end-to-end platform for AI-assisted health assessment. Patients submit their clinical parameters and instantly receive machine-learning-generated risk predictions across multiple disease categories. ``Currently Only for Heart Disease``.Physicians can then review those predictions, issue corrections, write diagnoses, and track patient progress over time.
 
 **Who is this for?**
 
@@ -54,6 +54,7 @@ CuraMind bridges the gap between patients and physicians by providing an end-to-
 |---|---|
 | **Patient** | Submit health parameters, view AI risk predictions, read doctor notes, track follow-ups |
 | **Doctor** | Review pending cases, override AI risk scores, write diagnoses and recommendations, monitor patient progress |
+| **Admin** | Manage users, view system analytics, configure settings |
 
 ---
 
@@ -101,6 +102,7 @@ The frontend communicates with the backend exclusively through a versioned REST 
 ```
 backend/
 ├── api/
+|   ├── admin.py               # Admin-only endpoints (user management, analytics)
 │   ├── auth.py                # Authentication endpoints (register, login, me)
 │   ├── patient.py             # Patient endpoints (assess, history, dashboard, doctor-notes)
 │   ├── doctor.py              # Doctor endpoints (queue, review, dashboard, analytics)
@@ -119,6 +121,7 @@ backend/
 │   └── followup.py            # FollowUp model — patient-submitted follow-up readings
 │
 ├── schemas/
+|   ├── admin.py               # Pydantic schemas for admin operations
 │   ├── auth.py                # Pydantic schemas for register/login requests and responses
 │   ├── patient.py             # Pydantic schemas for health parameter submission
 │   ├── doctor.py              # Pydantic schemas for review submission
@@ -173,6 +176,10 @@ frontend/
 │   │   │   ├── Queue.tsx      # Full paginated patient queue
 │   │   │   └── Review.tsx     # Case review — patient params, AI predictions, diagnosis form
 │   │   │
+│   │   ├── admin/
+│   │   │   └── AdminDashboard.tsx        # Admin dashboard page component
+│   │   │
+│   │   └── LandingPage.tsx   # Public landing page with app overview and registration prompt
 │   │   └── NotFound.tsx       # 404 page
 │   │
 │   ├── routes/                # AppRoutes.tsx — PrivateRoute and RoleRoute wrappers
@@ -226,7 +233,7 @@ git --version
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/curamind.git
+git clone https://github.com/st0rm47/CuraMind.git
 cd curamind
 ```
 
@@ -414,7 +421,7 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 All endpoints are prefixed with their resource path. Authentication endpoints are public; all others require a valid `Authorization: Bearer <token>` header.
 
-### Authentication
+### 1. Authentication
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -422,7 +429,7 @@ All endpoints are prefixed with their resource path. Authentication endpoints ar
 | `POST` | `/auth/login` | Log in and receive a JWT access token |
 | `GET` | `/auth/me` | Return the currently authenticated user's profile |
 
-### Patient
+### 2. Patient
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -432,18 +439,20 @@ All endpoints are prefixed with their resource path. Authentication endpoints ar
 | `GET` | `/patient/assessments/latest` | Retrieve the most recent assessment (within 30 minutes) |
 | `GET` | `/patient/assessments/latest/shap` | SHAP values for the most recent assessment |
 | `GET` | `/patient/doctor-notes` | All reviewed reports with doctor profile, predictions, and overrides |
+| `POST` | `/patient/progress` | Submit health parameters for trend tracking without generating new predictions |
 | `POST` | `/patient/followup/{report_id}` | Submit a follow-up reading for an existing report |
 
-### Doctor
+### 3. Doctor
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `GET` | `/doctor/dashboard` | Fetch all data for the doctor dashboard in one request |
 | `GET` | `/doctor/queue` | Paginated list of all patient cases with optional status filter |
 | `POST` | `/doctor/review` | Submit a clinical review for a patient report |
+| `GET` | `/doctor/followups` | List all follow-up submissions from patients |
 | `GET` | `/doctor/corrections` | All cases where the doctor overrode AI predictions |
 
-### Notifications
+### 4. Notifications
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -452,7 +461,16 @@ All endpoints are prefixed with their resource path. Authentication endpoints ar
 | `PATCH` | `/notifications/{id}/read` | Mark a single notification as read |
 | `PATCH` | `/notifications/read-all` | Mark all notifications as read |
 
----
+### 5. Admin
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/admin/stats` | System-wide statistics (user counts, assessments, reviews) |
+| `GET` | `/admin/patients` | List all patients with pagination |
+| `GET` | `/admin/doctors` | List all doctors with pagination |
+| `POST` | `/admin/doctors` | Create a new doctor account |
+| `POST` | `/admin/doctors/{doctor_id}/activate` | Activate a doctor account |
+| `POST` | `/admin/doctors/{doctor_id}/deactivate` | Deactivate a doctor account |
 
 ## Machine Learning Module
 
@@ -461,8 +479,8 @@ The ML engine is located in `backend/services/ml_engine.py` and is called synchr
 ### What it does
 
 1. Accepts the patient's health parameters as input
-2. Runs them through one or more trained classifiers
-3. Returns probability scores for each disease category
+2. Runs them through one of the trained classifiers for now.
+3. Returns probability scores for heart disease category
 4. Computes SHAP values to explain which features drove each prediction
 5. Assigns an overall risk level and generates recommendations
 
@@ -517,5 +535,5 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by the CuraMind team</sub>
+  <sub>Built  by the CuraMind team</sub>
 </div>
