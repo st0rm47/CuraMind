@@ -35,6 +35,10 @@ frontend/
 │   │   │   ├── Queue.tsx                 # Doctor queue management page component
 │   │   │   └── Review.tsx                # Doctor review page component
 │   │   │
+|   |   ├── admin/
+|   |   │   └── AdminDashboard.tsx        # Admin dashboard page component
+|   |   │   
+|   |   └── LandingPage.tsx               # Public landing page component
 │   │   └── NotFound.tsx                  # 404 Not Found page component
 │   │
 │   ├── routes/                           # React Router route definitions
