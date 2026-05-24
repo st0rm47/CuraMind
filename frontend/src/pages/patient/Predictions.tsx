@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/services/api";
 import { ApiResponse } from "@/types/report";
 import { getLatestAssessmentApi } from "@/services/patient.service";
+import { formatDateTime } from "@/utils/formatDate";
 
 // Risk config
 const RISK_META: Record<
@@ -601,12 +602,7 @@ export default function Predictions() {
 
   const overallMeta = getRiskMeta(data.risk_level);
   const confidence = Math.round(data.risk_percentage ?? 0);
-  const createdAt = data.created_at
-    ? new Date(data.created_at).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : null;
+  const createdAt = formatDateTime(data.created_at);
   const diseases = Object.entries(data.predictions ?? {}).map(
     ([key, result]) => ({
       key,
@@ -727,7 +723,7 @@ export default function Predictions() {
         </span> */}
       </div>
 
-      {/* 3. DISEASE CARDS  */}
+      {/* 3. DISEASE CARDS 
       {diseases.length > 0 && (
         <section>
           <p style={SL}>
@@ -742,7 +738,7 @@ export default function Predictions() {
             ))}
           </div>
         </section>
-      )}
+      )} */}
 
       {/* 4. OVERALL ASSESSMENT (left) + MODEL + RISK BARS (right) */}
       <div
@@ -779,6 +775,7 @@ export default function Predictions() {
               color={overallMeta.color}
               size={90}
             />
+            
             <div>
               <p
                 style={{
@@ -810,7 +807,7 @@ export default function Predictions() {
           {/* Stat tiles */}
           <div style={{ display: "flex", gap: "0.65rem" }}>
             <StatTile
-              label="Confidence"
+              label="Classification Confidence"
               value={`${confidence}%`}
               color={overallMeta.color}
             />

@@ -4,20 +4,18 @@ import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
 import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Disclaimer from "@/components/ui/Disclaimer";
+import { StepWizardPro, STEPS_LABELS } from "@/components/common/StepWizard";
 
-import {
-  submitAssessmentApi,
-} from "@/services/patient.service";
+import { submitAssessmentApi } from "@/services/patient.service";
 import { getErrorMessage } from "@/services/api";
 
 import type { Assessment, HealthParams } from "@/types/report";
 import Spinner from "@/components/ui/Spinner";
 
-// ── Default values ───────────────────────────────
+//  Default values
 const DEFAULT_PARAMS: HealthParams = {
   age: 45,
   gender: "male",
@@ -63,10 +61,9 @@ export default function HealthInput() {
   const handleNewAssessment = async (params: HealthParams) => {
     setAnalyzing(true);
     try {
-      const bmi = +(params.weight / Math.pow(params.height / 100, 2)).toFixed(
-        2,
-      );
-      const payload = { ...params, bmi };
+      const bmi = +(params.weight / Math.pow(params.height / 100, 2)).toFixed(2);
+      const mappedFastingBs = params.fasting_bs > 120 ? 1 : 0;
+      const payload = { ...params, bmi, fasting_bs: mappedFastingBs };
       const assessment = await submitAssessmentApi(payload);
       setAssessments((prev) => [assessment, ...prev]);
       navigate("/patient/predictions", {
@@ -88,90 +85,19 @@ export default function HealthInput() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in space-y-4 sm:space-y-6 w-full min-w-0">
       <div>
         <h1 className="page-title">Health Parameter Input</h1>
-        <p className="page-sub">
-          Submit accurate data for best prediction accuracy
-        </p>
+        <p className="page-sub">Submit accurate data for best prediction accuracy</p>
       </div>
       <HealthInputTab onSubmit={handleNewAssessment} initial={latest?.params} />
     </div>
   );
 }
 
-// ── Step Wizard ───────────────────────────────────────────────────────────────
-const STEPS_LABELS = [
-  { label: "Personal", icon: "👤" },
-  { label: "Lifestyle", icon: "🏃" },
-  { label: "Heart", icon: "🫀" },
-  { label: "Vitals", icon: "💉" },
-  { label: "Labs", icon: "🔬" },
-  { label: "Symptoms", icon: "📋" },
-  { label: "Review", icon: "✅" },
-];
 
-function StepWizardPro({ currentStep }: { currentStep: number }) {
-  return (
-    <div className="relative flex items-center justify-between mb-8 px-0">
-      {/* connecting line */}
-      <div className="absolute top-[18px] left-2 right-2 h-px bg-gray-800 z-0" />
-      <div
-        className="absolute top-[18px] left-1 right-1 h-px bg-brand-500 z-0 transition-all duration-500"
-        style={{ width: `${(currentStep / (STEPS_LABELS.length - 1)) * 100}%` }}
-      />
 
-      {/* step indicators */}
-      {STEPS_LABELS.map((s, i) => {
-        const done = i < currentStep;
-        const active = i === currentStep;
-        return (
-          <div
-            key={s.label}
-            className="relative z-10 flex flex-col items-center gap-0"
-          >
-            <div
-              className={`
-                w-9 h-9 rounded-full flex items-center justify-center text-[13px]
-                border-2 transition-all duration-300
-                ${
-                  done
-                    ? "bg-brand-500 border-brand-500 text-white"
-                    : active
-                      ? "bg-gray-900 border-brand-500 text-brand-400 shadow-[0_0_0_3px_rgba(99,102,241,0.15)]"
-                      : "bg-gray-900 border-gray-700 text-gray-600"
-                }
-              `}
-            >
-              {done ? (
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                  <path
-                    d="M2 6.5L5.5 10L11 3"
-                    stroke="white"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : (
-                <span>{s.icon}</span>
-              )}
-            </div>
-            <span
-              className={`text-[9px] font-mono font-semibold uppercase tracking-widest whitespace-nowrap transition-colors duration-300
-                ${active ? "text-brand-400" : done ? "text-gray-400" : "text-gray-600"}
-              `}
-            >
-              {s.label}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Section Header ────────────────────────────────────────────────────────────
+//  Section Header
 function SectionHeader({
   icon,
   title,
@@ -182,19 +108,20 @@ function SectionHeader({
   subtitle: string;
 }) {
   return (
-    <div className="flex items-center gap-3 mb-5 pb-4 border-b border-gray-800">
-      <div className="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-[16px]">
+    <div className="flex items-center gap-3 mb-4 sm:mb-5 pb-3 sm:pb-4 border-b border-gray-800">
+      <div className="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-[16px] shrink-0">
         {icon}
       </div>
-      <div>
-        <h2 className="text-[14px] font-bold text-gray-100">{title}</h2>
-        <p className="text-[11px] text-gray-500 font-mono">{subtitle}</p>
+      <div className="min-w-0">
+        <h2 className="text-[14px] font-bold text-gray-100 truncate">{title}</h2>
+        <p className="text-[11px] text-gray-500 font-mono xs:block">{subtitle}</p>
       </div>
     </div>
   );
 }
 
-// ── Field Group ───────────────────────────────────────────────────────────────
+//  Field Grid 
+// FIX 3: always single column on mobile, requested cols on sm+
 function FieldGrid({
   children,
   cols = 2,
@@ -202,14 +129,18 @@ function FieldGrid({
   children: React.ReactNode;
   cols?: number;
 }) {
+  const colClass =
+    cols === 3
+      ? "grid-cols-1 sm:grid-cols-3"
+      : "grid-cols-1 sm:grid-cols-2";
   return (
-    <div className={`grid gap-4 ${cols === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+    <div className={`grid gap-3 sm:gap-4 ${colClass}`}>
       {children}
     </div>
   );
 }
 
-// ── Enhanced Select with visible dropdown arrow ───────────────────────────────
+//  Select Field 
 function SelectField({
   label,
   value,
@@ -224,11 +155,11 @@ function SelectField({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-0.4 h-full">
       <label className="form-label">{label}</label>
       <div className="relative">
         <select
-          className="form-input appearance-none pr-9 cursor-pointer"
+          className="form-input appearance-none pr-9 cursor-pointer w-full "
           value={value}
           onChange={onChange}
         >
@@ -238,15 +169,8 @@ function SelectField({
             </option>
           ))}
         </select>
-        {/* custom dropdown arrow — always right-aligned */}
         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-          <svg
-            width="12"
-            height="7"
-            viewBox="0 0 12 7"
-            fill="none"
-            className="text-gray-400"
-          >
+          <svg width="12" height="7" viewBox="0 0 12 7" fill="none" className="text-gray-400">
             <path
               d="M1 1L6 6L11 1"
               stroke="currentColor"
@@ -262,7 +186,7 @@ function SelectField({
   );
 }
 
-// ── BMI Capsule ───────────────────────────────────────────────────────────────
+// BMI Capsule 
 function BmiCapsule({ bmi }: { bmi: number }) {
   const { color, label } =
     bmi < 18.5
@@ -274,7 +198,7 @@ function BmiCapsule({ bmi }: { bmi: number }) {
           : { color: "#f87171", label: "Obese" };
 
   return (
-    <div className="col-span-2 flex items-center gap-0">
+    <div className="col-span-1 sm:col-span-2 flex items-center">
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gray-800/80 border border-gray-700 text-sm">
         <span className="text-gray-500 text-[11px] font-mono">BMI</span>
         <span className="font-mono font-bold text-[13px]" style={{ color }}>
@@ -295,7 +219,7 @@ function BmiCapsule({ bmi }: { bmi: number }) {
   );
 }
 
-// ── Review Section Card ───────────────────────────────────────────────────────
+//  Review Section Card 
 function ReviewCard({
   title,
   icon,
@@ -306,7 +230,7 @@ function ReviewCard({
   items: [string, string][];
 }) {
   return (
-    <div className="bg-gray-800/40 border border-gray-800 rounded-xl p-4">
+    <div className="bg-gray-800/40 border border-gray-800 rounded-xl p-3 sm:p-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[13px]">{icon}</span>
         <p className="text-[9px] font-mono text-gray-500 uppercase tracking-widest font-semibold">
@@ -315,9 +239,10 @@ function ReviewCard({
       </div>
       <div className="space-y-2">
         {items.map(([k, v]) => (
-          <div key={k} className="flex justify-between items-center">
-            <span className="text-[11px] text-gray-500">{k}</span>
-            <span className="font-mono text-[11px] font-semibold text-gray-200 bg-gray-800 px-2 py-0.5 rounded">
+          <div key={k} className="flex justify-between items-center gap-2">
+            {/* FIX 5: truncate long key text, value never wraps */}
+            <span className="text-[11px] text-gray-500 truncate min-w-0">{k}</span>
+            <span className="font-mono text-[11px] font-semibold text-gray-200 bg-gray-800 px-2 py-0.5 rounded shrink-0 max-w-[55%] truncate">
               {v}
             </span>
           </div>
@@ -327,7 +252,7 @@ function ReviewCard({
   );
 }
 
-// ── Health Input Tab ──────────────────────────────────────────────────────────
+//  Health Input Tab 
 function HealthInputTab({
   onSubmit,
   initial,
@@ -357,27 +282,24 @@ function HealthInputTab({
     const e: Record<string, string> = {};
     if (s === 0) {
       if (!form.age || form.age < 1 || form.age > 120) e.age = "1–120 years";
-      if (!form.weight || form.weight < 20 || form.weight > 300)
-        e.weight = "20-300 kg";
-      if (!form.height || form.height < 50 || form.height > 250)
-        e.height = "50-250 cm";
+      if (!form.weight || form.weight < 20 || form.weight > 300) e.weight = "20-300 kg";
+      if (!form.height || form.height < 50 || form.height > 250) e.height = "50-250 cm";
     }
     if (s === 1) {
       if (!form.smoking_status) e.smoking_status = "Please select an option";
-      if (!form.alcohol_consumption)        e.alcohol_consumption = "Please select an option";
-      if (!form.physical_activity)        e.physical_activity = "Please select an option";
-      if (!form.family_history)        e.family_history = "Please select an option";
+      if (!form.alcohol_consumption) e.alcohol_consumption = "Please select an option";
+      if (!form.physical_activity) e.physical_activity = "Please select an option";
+      if (!form.family_history) e.family_history = "Please select an option";
     }
     if (s === 2) {
       if (!form.chest_pain_type) e.chest_pain_type = "Please select an option";
       if (!form.resting_ecg) e.resting_ecg = "Please select an option";
       if (!form.st_slope) e.st_slope = "Please select an option";
       if (!form.exercise_angina) e.exercise_angina = "Please select an option";
-      if (form.fasting_bs < 50 || form.fasting_bs > 100) e.fasting_bs = "Should be in range 50-100 mg/dL";
+      if (form.fasting_bs < 50 || form.fasting_bs > 400) e.fasting_bs = "Should be in range 50-400 mg/dL";
       if (form.max_hr < 0 || form.max_hr > 220) e.max_hr = "Should be in range 0-220 bpm";
       if (form.oldpeak < 0 || form.oldpeak > 6) e.oldpeak = "Should be in range 0-6";
     }
-
     if (s === 3) {
       if (!form.glucose || form.glucose < 50 || form.glucose > 500)
         e.glucose = "Should be in range 50-500 mg/dL";
@@ -391,11 +313,7 @@ function HealthInputTab({
         e.creatinine = "Should be in range 0.3-15 mg/dL";
       if (!form.wbc_count || form.wbc_count < 1000 || form.wbc_count > 30000)
         e.wbc_count = "Should be in range 1,000-30,000";
-      if (
-        !form.platelet_count ||
-        form.platelet_count < 10000 ||
-        form.platelet_count > 800000
-      )
+      if (!form.platelet_count || form.platelet_count < 10000 || form.platelet_count > 800000)
         e.platelet_count = "Should be in range 10,000-800,000 cells/μL";
     }
     return e;
@@ -411,7 +329,7 @@ function HealthInputTab({
     setStep((s) => s + 1);
   };
 
-  // ── Select option groups ──────────────────────────────────────────────────
+  //  Select option groups 
   const GENDER_OPTS = [
     { value: "male", label: "Male" },
     { value: "female", label: "Female" },
@@ -461,7 +379,7 @@ function HealthInputTab({
     { value: "N", label: "No" },
   ];
 
-  // ── Step panels ───────────────────────────────────────────────────────────
+  // Steps
   const panels = [
     // Step 0 — Personal
     <div key="personal" className="animate-fade-in space-y-4">
@@ -471,20 +389,23 @@ function HealthInputTab({
         subtitle="Basic demographic and body measurements"
       />
       <FieldGrid>
-        <Input
-          label="Age (years)"
-          type="number"
-          value={String(form.age)}
-          onChange={set("age")}
-          error={errors.age}
-          hint="Valid range: 1–120"
-        />
-        <SelectField
-          label="Gender"
-          options={GENDER_OPTS}
-          value={form.gender}
-          onChange={set("gender")}
-        />
+        <div className="flex flex-col justify-start">
+    <Input
+      label="Age (years)"
+      type="number"
+      value={String(form.age)}
+      onChange={set("age")}
+      error={errors.age}
+    />
+  </div>
+        <div className="flex flex-col justify-start">
+    <SelectField
+      label="Gender"
+      options={GENDER_OPTS}
+      value={form.gender}
+      onChange={set("gender")}
+    />
+  </div>
         <Input
           label="Weight (kg)"
           type="number"
@@ -524,7 +445,6 @@ function HealthInputTab({
           options={ALCOHOL_OPTS}
           value={form.alcohol_consumption}
           onChange={set("alcohol_consumption")}
-
         />
         <SelectField
           label="Physical Activity"
@@ -568,7 +488,7 @@ function HealthInputTab({
           onChange={set("st_slope")}
         />
         <SelectField
-          label="Chest Pain During Exercise ?"
+          label="Chest Pain During Exercise?"
           options={ANGINA_OPTS}
           value={form.exercise_angina}
           onChange={set("exercise_angina")}
@@ -579,7 +499,7 @@ function HealthInputTab({
           value={String(form.fasting_bs)}
           onChange={set("fasting_bs")}
           error={errors.fasting_bs}
-          hint="Normal: < 100 mg/dL"
+          hint="Normal: ≤ 120 mg/dL"
         />
         <Input
           label="Max Heart Rate"
@@ -589,7 +509,8 @@ function HealthInputTab({
           error={errors.max_hr}
           hint="Typical max: 220 - age bpm"
         />
-        <div className="col-span-2">
+        {/* FIX 6: col-span-1 on mobile, col-span-2 on sm+ for the full-width field */}
+        <div className="col-span-1 sm:col-span-2">
           <Input
             label="Stress During Exercise"
             type="number"
@@ -627,7 +548,7 @@ function HealthInputTab({
           error={errors.cholesterol}
           hint="Desirable: < 200 mg/dL"
         />
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2">
           <Input
             label="Resting Blood Pressure"
             type="number"
@@ -695,25 +616,22 @@ function HealthInputTab({
       <div className="space-y-1.5">
         <label className="form-label">
           Symptoms{" "}
-          <span className="normal-case text-gray-600 font-normal">
-            (optional)
-          </span>
+          <span className="normal-case text-gray-600 font-normal">(optional)</span>
         </label>
         <textarea
-          className="form-input resize-y min-h-[120px] leading-relaxed"
+          className="form-input resize-y min-h-[120px] leading-relaxed w-full"
           placeholder="Chest discomfort, shortness of breath, fatigue, dizziness...."
           value={form.symptoms}
           onChange={set("symptoms")}
         />
         <p className="form-hint">
-          Be as specific as possible — onset, duration, and severity help the AI
-          calibrate results.
+          Be as specific as possible — onset, duration, and severity help the AI calibrate results.
         </p>
       </div>
     </div>,
 
     // Step 6 — Review
-    <div key="review" className="animate-fade-in space-y-5">
+    <div key="review" className="animate-fade-in space-y-4 sm:space-y-5">
       <SectionHeader
         icon="✅"
         title="Review & Submit"
@@ -727,13 +645,14 @@ function HealthInputTab({
           Do not make medical decisions based solely on these results.
         </strong>
       </Disclaimer>
-      <div className="grid grid-cols-2 gap-3">
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <ReviewCard
           title="Personal"
           icon="👤"
           items={[
             ["Age", `${form.age} yrs`],
-            ["Gender",GENDER_OPTS.find((o) => o.value === form.gender)?.label ?? form.gender,],
+            ["Gender", GENDER_OPTS.find((o) => o.value === form.gender)?.label ?? form.gender],
             ["BMI", String(bmi)],
           ]}
         />
@@ -752,21 +671,21 @@ function HealthInputTab({
           items={[
             ["Hemoglobin", `${form.hemoglobin} g/dL`],
             ["Creatinine", `${form.creatinine} mg/dL`],
-            ["WBC", (+form.wbc_count).toLocaleString() + " cells/μL"],
-            ["Platelets", (+form.platelet_count).toLocaleString() + " cells/μL"],
+            ["WBC", (+form.wbc_count).toLocaleString() + " /μL"],
+            ["Platelets", (+form.platelet_count).toLocaleString() + " /μL"],
           ]}
         />
         <ReviewCard
           title="Lifestyle"
           icon="🏃"
           items={[
-            ["Smoking", SMOKING_OPTS.find((o) => o.value === form.smoking_status)?.label ?? form.smoking_status,],
-            ["Alcohol", ALCOHOL_OPTS.find((o) => o.value === form.alcohol_consumption)?.label ?? form.alcohol_consumption,],
-            ["Exercise", EXERCISE_OPTS.find((o) => o.value === form.physical_activity)?.label ?? form.physical_activity,],
-            ["Family Hx", FAMILY_OPTS.find((o) => o.value === form.family_history)?.label ?? form.family_history,],
+            ["Smoking", SMOKING_OPTS.find((o) => o.value === form.smoking_status)?.label ?? form.smoking_status],
+            ["Alcohol", ALCOHOL_OPTS.find((o) => o.value === form.alcohol_consumption)?.label ?? form.alcohol_consumption],
+            ["Exercise", EXERCISE_OPTS.find((o) => o.value === form.physical_activity)?.label ?? form.physical_activity],
+            ["Family Hx", FAMILY_OPTS.find((o) => o.value === form.family_history)?.label ?? form.family_history],
           ]}
         />
-        <div className="col-span-2">
+        <div className="col-span-1 sm:col-span-2">
           <ReviewCard
             title="Cardiac Indicators"
             icon="🫀"
@@ -786,13 +705,13 @@ function HealthInputTab({
   ];
 
   return (
-    <Card>
+    <Card className="px-3 py-4 sm:px-6 sm:py-6">
       <StepWizardPro currentStep={step} />
 
-      <div style={{ minHeight: 300 }}>{panels[step]}</div>
+      <div style={{ minHeight: 280 }}>{panels[step]}</div>
 
       {/* Navigation */}
-      <div className="flex justify-between items-center mt-8 pt-4 border-t border-gray-800">
+      <div className="flex justify-between items-center mt-6 sm:mt-8 pt-4 border-t border-gray-800 gap-3">
         <Button
           variant="ghost"
           onClick={() => {
@@ -800,20 +719,21 @@ function HealthInputTab({
             setErrors({});
           }}
           disabled={step === 0}
+          className="shrink-0"
         >
           ← Back
         </Button>
 
-        <span className="text-[11px] text-gray-600 font-mono">
-          Step {step + 1} of {STEPS_LABELS.length}
+        <span className="text-[11px] text-gray-600 font-mono text-center">
+          {step + 1} / {STEPS_LABELS.length}
         </span>
 
         {step < STEPS_LABELS.length - 1 ? (
-          <Button variant="primary" onClick={next}>
+          <Button variant="primary" onClick={next} className="shrink-0">
             Continue →
           </Button>
         ) : (
-          <Button variant="teal" onClick={() => onSubmit(form)}>
+          <Button variant="teal" onClick={() => onSubmit(form)} className="shrink-0">
             🧠 Run AI Analysis
           </Button>
         )}

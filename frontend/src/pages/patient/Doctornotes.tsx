@@ -8,93 +8,10 @@ import { getErrorMessage }     from '@/services/api'
 import { getDoctorNotesApi }   from '@/services/patient.service'
 import { formatDateTime }      from '@/utils/formatDate'
 import { DISEASE_META }        from '@/components/common/riskUtils'
-import type { DiseaseKey }     from '@/types/report'
+import { riskColor, riskLabel, getInitials, KEY_MAP } from '@/utils/notesHelpers'
+import type { DoctorNote, AiPrediction,   RiskOverride, DoctorProfile }     from '@/types/notes'
 
-// ── Types matching GET /patient/doctor-notes ──────────────────────────────────
-interface AiPrediction {
-  disease_name: string
-  probability:  number       // 0-100
-  risk_level:   string | null
-}
-
-interface RiskOverride {
-  ai_risk:     string | null
-  doctor_risk: string
-}
-
-interface DoctorProfile {
-  id:             string | null
-  name:           string | null
-  speciality:     string | null
-  license_number: string | null
-  email:          string | null
-}
-
-interface DoctorNote {
-  report_id:      string
-  submitted_at:   string
-  reviewed_at:    string | null
-  overall_risk:   string
-  confidence:     number | null
-  doctor:         DoctorProfile | null
-  ai_predictions: Record<string, AiPrediction>
-  risk_overrides: Record<string, RiskOverride>
-  diagnosis:      string | null
-  recommendations: string | null
-  follow_up_weeks: number | null
-}
-
-interface DoctorNotesResponse {
-  notes: DoctorNote[]
-  total: number
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-// ML may store keys in snake_case — map to camelCase for DISEASE_META lookup
-const KEY_MAP: Record<string, DiseaseKey> = {
-  diabetes:       'diabetes',
-  hypertension:   'hypertension',
-  heart_disease:  'heartDisease',
-  heartdisease:   'heartDisease',
-  heartDisease:   'heartDisease',
-  kidney_disease: 'kidneyDisease',
-  kidneydisease:  'kidneyDisease',
-  kidneyDisease:  'kidneyDisease',
-  liver_disease:  'liverDisease',
-  liverdisease:   'liverDisease',
-  liverDisease:   'liverDisease',
-  anemia:         'anemia',
-}
-
-function riskColor(level: string | null): string {
-  switch ((level ?? '').toLowerCase()) {
-    case 'critical': return '#ff1744'
-    case 'high':     return '#ff5f7e'
-    case 'medium':
-    case 'moderate': return '#ffbe3d'
-    case 'low':      return '#00d4a8'
-    default:         return '#6b7280'
-  }
-}
-
-function riskLabel(level: string | null): string {
-  if (!level) return '—'
-  return level.charAt(0).toUpperCase() + level.slice(1).toLowerCase()
-}
-
-function getInitials(name: string | null): string {
-  if (!name) return 'Dr'
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
-}
-
-// ── Service call (add to patient.service.ts) ──────────────────────────────────
-// export async function getDoctorNotesApi(): Promise<DoctorNotesResponse> {
-//   const { data } = await api.get<DoctorNotesResponse>('/patient/doctor-notes')
-//   return data
-// }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+//Page component
 export default function DoctorNotes() {
   const [notes,   setNotes]   = useState<DoctorNote[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,7 +32,8 @@ export default function DoctorNotes() {
   }
 
   return (
-    <div className="animate-fade-in space-y-5">
+    // FIX 1: w-full min-w-0 on root
+    <div className="animate-fade-in space-y-5 w-full min-w-0">
       <div>
         <h1 className="page-title">Doctor Notes</h1>
         <p className="page-sub">
@@ -142,7 +60,7 @@ export default function DoctorNotes() {
   )
 }
 
-// ── Note card ─────────────────────────────────────────────────────────────────
+// Note card 
 function NoteCard({ note }: { note: DoctorNote }) {
   const doc             = note.doctor
   const hasOverrides    = Object.keys(note.risk_overrides).length > 0
@@ -150,41 +68,40 @@ function NoteCard({ note }: { note: DoctorNote }) {
   const overrideEntries = Object.entries(note.risk_overrides)
 
   return (
-    <Card>
+    <Card className="min-w-0 overflow-hidden">
 
-      {/* ── Doctor profile header ─────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
+      {/* Doctor profile header  */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5 sm:mb-6">
+        <div className="flex items-center gap-3 min-w-0">
           {/* Avatar */}
           <div
-            className="w-12 h-12 rounded-full flex items-center justify-center text-base font-bold text-white shrink-0"
+            className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-base font-bold text-white shrink-0"
             style={{ background: 'linear-gradient(135deg,#4da3ff,#00d4a8)' }}
           >
             {getInitials(doc?.name ?? null)}
           </div>
 
           {/* Doctor details */}
-          <div>
-            <p className="font-bold text-[15px] text-gray-100">
+          <div className="min-w-0">
+            <p className="font-bold text-[14px] sm:text-[15px] text-gray-100 truncate">
               {doc?.name ?? 'Unknown Physician'}
             </p>
             {doc?.speciality && (
-              <p className="text-[12px] text-gray-400">{doc.speciality}</p>
+              <p className="text-[12px] text-gray-400 truncate">{doc.speciality}</p>
             )}
             {doc?.license_number && (
-              <p className="text-[11px] text-gray-500 font-mono mt-0.5">
-                License No: {doc.license_number}
+              <p className="text-[11px] text-gray-500 font-mono mt-0.5 truncate">
+                License: {doc.license_number}
               </p>
             )}
           </div>
         </div>
 
-        {/* Reviewed badge */}
-        <span className="tag tag-teal flex-shrink-0">✓ Reviewed</span>
+        <span className="tag tag-teal shrink-0 self-start">✓ Reviewed</span>
       </div>
 
-      {/* ── Report timeline ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+      {/* Report timeline  */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-5 sm:mb-6">
         <div className="bg-gray-800/50 rounded-xl px-4 py-3">
           <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-widest mb-1">
             Report Submitted
@@ -203,19 +120,19 @@ function NoteCard({ note }: { note: DoctorNote }) {
         </div>
       </div>
 
-      {/* ── AI Predictions + Doctor Risk Corrections — side by side ────────── */}
+      {/*  AI Predictions + Doctor Risk Corrections */}
       {(predEntries.length > 0 || hasOverrides) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6 items-stretch">
+        // FIX 3: stacks to single col on mobile, side-by-side on lg+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5 sm:mb-6 items-stretch">
 
-          {/* ── LEFT: AI Predictions ── */}
+          {/* LEFT: AI Predictions */}
           {predEntries.length > 0 && (
-            <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4">
-              {/* Header */}
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 flex-shrink-0">
+            <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4 min-w-0">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 shrink-0">
                 🤖 AI Predictions
               </p>
-              {/* Disease grid — grows to fill remaining height */}
-              <div className="grid grid-cols-2 gap-2 flex-1 content-start">
+              
+              <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 flex-1 content-start">
                 {predEntries.map(([rawKey, pred]) => {
                   const key        = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
                   const meta       = key ? DISEASE_META[key] : null
@@ -226,17 +143,17 @@ function NoteCard({ note }: { note: DoctorNote }) {
                   return (
                     <div
                       key={rawKey}
-                      className="rounded-xl bg-gray-800/60 border border-gray-700/30 px-3 py-3 relative"
+                      className="rounded-xl bg-gray-800/60 border border-gray-700/30 px-3 py-3 relative min-w-0"
                     >
-                      {/* Amber dot = doctor overrode this disease */}
                       {overridden && (
                         <div
                           className="absolute top-2 right-2 w-2 h-2 rounded-full bg-amber-400"
                           title="Doctor overrode this prediction"
                         />
                       )}
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className="text-sm">{meta?.icon ?? '🔬'}</span>
+                      <div className="flex items-center gap-1.5 mb-2 pr-4 min-w-0">
+                        <span className="text-sm shrink-0">{meta?.icon ?? '🔬'}</span>
+                        {/* FIX 5: truncate long disease names inside the small card */}
                         <span className="text-[11px] font-semibold text-gray-200 truncate leading-tight">
                           {meta?.name ?? pred.disease_name ?? rawKey}
                         </span>
@@ -247,13 +164,13 @@ function NoteCard({ note }: { note: DoctorNote }) {
                           style={{ width: `${pct}%`, background: color }}
                         />
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[11px] text-gray-400 tabular-nums">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="font-mono text-[11px] text-gray-400 tabular-nums shrink-0">
                           {pct}%
                         </span>
                         {pred.risk_level && (
                           <span
-                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                            className="text-[9px] font-bold px-1.5 py-0.5 rounded-full truncate"
                             style={{ background: `${color}20`, color }}
                           >
                             {riskLabel(pred.risk_level)}
@@ -264,23 +181,22 @@ function NoteCard({ note }: { note: DoctorNote }) {
                   )
                 })}
               </div>
-              {/* Legend for amber dot */}
-              <p className="text-[9px] text-gray-600 mt-3 flex-shrink-0 flex items-center gap-1.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400" />
+              <p className="text-[9px] text-gray-600 mt-3 shrink-0 flex items-center gap-1.5">
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                 Dot indicates doctor issued a correction
               </p>
             </div>
           )}
 
-          {/* ── RIGHT: Doctor Risk Corrections ── */}
-          <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4">
+          {/* RIGHT: Doctor Risk Corrections */}
+          <div className="flex flex-col rounded-2xl border border-gray-700/40 bg-gray-800/20 p-4 min-w-0">
             {/* Header */}
-            <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+            <div className="flex items-center gap-2 mb-3 shrink-0 flex-wrap">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                 🩺 Doctor Risk Corrections
               </p>
               {hasOverrides && (
-                <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">
+                <span className="text-[9px] font-semibold px-2 py-0.5 rounded bg-amber-500/15 text-amber-400 shrink-0">
                   {overrideEntries.length} override{overrideEntries.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -288,7 +204,6 @@ function NoteCard({ note }: { note: DoctorNote }) {
 
             {hasOverrides ? (
               <>
-                {/* Override rows */}
                 <div className="space-y-2 flex-1">
                   {overrideEntries.map(([rawKey, override]) => {
                     const key      = KEY_MAP[rawKey] ?? KEY_MAP[rawKey.toLowerCase()]
@@ -299,13 +214,15 @@ function NoteCard({ note }: { note: DoctorNote }) {
                     return (
                       <div
                         key={rawKey}
-                        className="flex items-center gap-3 px-3 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15"
+                        // FIX 6: flex-wrap so the AI→Doctor badge row wraps on narrow screens
+                        className="flex flex-wrap items-center gap-2 px-3 py-3 rounded-xl bg-amber-500/5 border border-amber-500/15"
                       >
-                        <span className="text-base flex-shrink-0">{meta?.icon ?? '🔬'}</span>
+                        <span className="text-base shrink-0">{meta?.icon ?? '🔬'}</span>
                         <span className="text-[12px] font-semibold text-gray-200 flex-1 min-w-0 truncate">
                           {meta?.name ?? rawKey}
                         </span>
-                        <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Badge row — shrink-0 keeps them together */}
+                        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                           <span
                             className="text-[10px] font-bold px-2 py-0.5 rounded-full line-through opacity-50"
                             style={{ background: `${aiColor}18`, color: aiColor }}
@@ -324,14 +241,13 @@ function NoteCard({ note }: { note: DoctorNote }) {
                     )
                   })}
                 </div>
-                <p className="text-[9px] text-gray-600 mt-3 flex-shrink-0 leading-relaxed">
-                  Your doctor reviewed the AI predictions and updated the risk levels above
+                <p className="text-[9px] text-gray-600 mt-3 shrink-0 leading-relaxed">
+                  Your doctor reviewed the classification of Heart Disease and updated the risk levels above
                   based on their clinical assessment.
                 </p>
               </>
             ) : (
-              /* No overrides — centred confirmation fills the full panel height */
-              <div className="flex-1 flex flex-col items-center justify-center text-center py-4">
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-6">
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center mb-3"
                   style={{ background: 'rgba(0,212,168,0.1)' }}
@@ -342,7 +258,7 @@ function NoteCard({ note }: { note: DoctorNote }) {
                   No corrections made
                 </p>
                 <p className="text-[11px] text-gray-500 leading-relaxed max-w-[180px]">
-                  Your doctor agreed with all AI risk predictions.
+                  Your doctor agreed with the classification of Heart Disease done by the AI.
                 </p>
               </div>
             )}
@@ -351,49 +267,50 @@ function NoteCard({ note }: { note: DoctorNote }) {
         </div>
       )}
 
-      {/* ── Divider ───────────────────────────────────────────────────────── */}
-      <div className="h-px bg-gray-800 mb-6" />
+      {/* Divider */}
+      <div className="h-px bg-gray-800 mb-5 sm:mb-6" />
 
-      {/* ── Clinical Diagnosis ────────────────────────────────────────────── */}
+      {/* Clinical Diagnosis  */}
       {note.diagnosis && (
         <div
-          className="bg-gray-800/50 rounded-xl p-4 mb-3"
+          className="bg-gray-800/50  p-4 mb-3 min-w-0"
           style={{ borderLeft: '3px solid #00d4a8' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-teal-400 mb-2">
             Clinical Diagnosis
           </p>
-          <p className="text-[13px] text-gray-200 leading-relaxed">
+          {/* FIX 7: break-words on all long-text blocks */}
+          <p className="text-[13px] text-gray-200 leading-relaxed break-words">
             {note.diagnosis}
           </p>
         </div>
       )}
 
-      {/* ── Recommendations ───────────────────────────────────────────────── */}
+      {/* Recommendations  */}
       {note.recommendations && (
         <div
-          className="bg-gray-800/50 rounded-xl p-4 mb-3"
+          className="bg-gray-800/50  p-4 mb-3 min-w-0"
           style={{ borderLeft: '3px solid #4da3ff' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-blue-400 mb-2">
             Treatment Recommendations
           </p>
-          <p className="text-[13px] text-gray-200 leading-relaxed">
+          <p className="text-[13px] text-gray-200 leading-relaxed break-words">
             {note.recommendations}
           </p>
         </div>
       )}
 
-      {/* ── Follow-up ─────────────────────────────────────────────────────── */}
+      {/* Follow-up */}
       {note.follow_up_weeks != null && (
         <div
-          className="bg-gray-800/50 rounded-xl p-4"
+          className="bg-gray-800/50  p-4 mb-3 min-w-0"
           style={{ borderLeft: '3px solid #ffbe3d' }}
         >
           <p className="text-[9px] font-mono font-bold uppercase tracking-widest text-amber-400 mb-2">
             Follow-Up Schedule
           </p>
-          <p className="text-[13px] text-gray-200 leading-relaxed">
+          <p className="text-[13px] text-gray-200 leading-relaxed break-words">
             Return for a follow-up visit in{' '}
             <span className="font-semibold text-amber-300">
               {note.follow_up_weeks} week{note.follow_up_weeks !== 1 ? 's' : ''}
