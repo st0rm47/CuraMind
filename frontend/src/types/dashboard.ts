@@ -50,6 +50,9 @@ export interface DashboardDoctorReview {
 }
 
 export interface DashboardLatest {
+  latest_followup: any
+  followup_submitted: any
+  follow_ups: any
   id:            string
   submitted_at:  string
   status:        AssessmentStatus
