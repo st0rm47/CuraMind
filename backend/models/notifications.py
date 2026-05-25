@@ -20,15 +20,15 @@ class Notification(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)  # Unique identifier for the notification
     user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)  # ID of the user receiving the notification
     
-    type = SAEnum(
-    'assessment',
-    'followup',
-    'doctor_review',
-    'followup_submitted',
-    'new_report',
-    'welcome',
-    name='notification_type'
-) # Type of notification (e.g., assessment, follow-up)
+    type: Mapped[str] = mapped_column(SAEnum(
+        'assessment',
+        'followup',
+        'doctor_review',
+        'followup_submitted',
+        'new_report',
+        'welcome',
+        name='notification_type'
+    ), nullable=False)  # Type of notification (e.g., assessment, follow-up)
     title : Mapped[str] = mapped_column(String(255), nullable=False)  # Title of the notification
     message: Mapped[str] = mapped_column(String(255), nullable=False)  # Message content of the notification
     action_page: Mapped[str] = mapped_column(String(255), nullable=True)  # Optional page or URL that the notification should link to when clicked
