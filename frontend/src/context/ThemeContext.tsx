@@ -1,9 +1,9 @@
 // src/context/ThemeContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react'
 
-const ThemeCtx = createContext(null)
+const ThemeCtx = createContext<any>(null)
 
-export function ThemeProvider({ children }) {
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState(
     () => localStorage.getItem('medai-theme') || 'dark'
   )

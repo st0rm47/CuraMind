@@ -5,7 +5,7 @@ export const APP_VERSION = '1.0.0'
 export const APP_TAGLINE = 'AI-Powered Predictive Health Intelligence'
 
 /** Base URL for the FastAPI backend — reads from .env, falls back to localhost */
-export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+export const API_BASE_URL = (import.meta as any).env.VITE_API_URL ?? 'http://localhost:8000'
 
 /** LocalStorage keys */
 export const STORAGE_TOKEN_KEY = 'curamind_access_token'
