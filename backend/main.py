@@ -16,7 +16,8 @@ app = FastAPI(title = "CuraMind")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # for dev (later restrict)
+    allow_origins=["http://localhost:5173",
+                   "https://cura-mind-omega.vercel.app/"],  # for dev (later restrict)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
