@@ -152,6 +152,21 @@ def get_shap_values(p):
 
     input_dict = build_heart_input(p)
     input_df = pd.DataFrame([input_dict])
+    
+    original_values = {
+        "Gender": "Male" if p.gender.lower() == "male" else "Female",
+        "Chest Pain Type": VALUE_TRANSLATIONS.get(p.chest_pain_type, p.chest_pain_type),
+        "Resting ECG": VALUE_TRANSLATIONS.get(p.resting_ecg, p.resting_ecg),
+        "Exercise-Induced Angina": VALUE_TRANSLATIONS.get(p.exercise_angina, p.exercise_angina),
+        "ST Segment Slope": VALUE_TRANSLATIONS.get(p.st_slope, p.st_slope),
+
+        "Age": p.age,
+        "Resting Blood Pressure": p.resting_bp,
+        "Cholesterol": p.cholesterol,
+        "Fasting Blood Sugar": p.fasting_bs,
+        "Maximum Heart Rate": p.max_hr,
+        "ST Depression": p.oldpeak,
+    }
 
     preprocessor = model.named_steps["preprocessor"]
     clf = model.named_steps["model"]
@@ -181,11 +196,12 @@ def get_shap_values(p):
 
         impact_value = float(np.ravel(impact)[0])
         readable_name = FEATURE_LABELS.get(name, name)
-        decoded_value = decode_value(name, val)
-
         if grouped[readable_name]["feature"] == "":
             grouped[readable_name]["feature"] = readable_name
-            grouped[readable_name]["value"] = decoded_value
+            grouped[readable_name]["value"] = original_values.get(
+                readable_name,
+                clean_value(val)
+            )
 
         grouped[readable_name]["impact"] += impact_value
         
