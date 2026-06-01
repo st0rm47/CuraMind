@@ -1,7 +1,6 @@
-// ─────────────────────────────────────────────────────────────────────────────
 // src/types/dashboard.ts
 // Types that exactly match the /patient/dashboard response shape
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 import type { DiseaseKey, RiskLevel, AssessmentStatus } from './report'
 

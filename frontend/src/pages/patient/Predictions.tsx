@@ -131,29 +131,30 @@ const AI_STEPS = [
 ];
 
 function AiStepCycler() {
-  const [stepIndex, setStepIndex] = useState(0)
+  const [stepIndex, setStepIndex] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => {
-      setStepIndex((i) => (i + 1) % AI_STEPS.length)
-    }, 900)
-    return () => clearInterval(id)
-  }, [])
+      setStepIndex((i) => (i + 1) % AI_STEPS.length);
+    }, 900);
+    return () => clearInterval(id);
+  }, []);
 
   return (
-    <div style={{
-      fontSize: 13,
-      fontFamily: "var(--font-mono)",
-      color: "#6366f1",
-      marginTop: 8,
-      minHeight: 20,
-      transition: "opacity 0.3s",
-    }}>
+    <div
+      style={{
+        fontSize: 13,
+        fontFamily: "var(--font-mono)",
+        color: "#6366f1",
+        marginTop: 8,
+        minHeight: 20,
+        transition: "opacity 0.3s",
+      }}
+    >
       {AI_STEPS[stepIndex]}
     </div>
-  )
+  );
 }
-
 
 // Shared style helpers
 const SL: React.CSSProperties = {
@@ -453,6 +454,137 @@ function RecommendationCard({ text, index }: { text: string; index: number }) {
   );
 }
 
+// ClassificationTile
+function ClassificationTile({
+  diseases,
+  color,
+}: {
+  diseases: { name: string; riskLevel: string }[];
+  color: string;
+}) {
+  return (
+    <div
+      style={{
+        width: "100%",
+        padding: "0.75rem",
+        borderRadius: 10,
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.5rem",
+        boxSizing: "border-box",
+      }}
+    >
+      <p
+        style={{
+          margin: 0,
+          fontSize: 9,
+          color: "#6b7280",
+          fontFamily: "var(--font-mono)",
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+        }}
+      >
+        Classification
+      </p>
+
+      {diseases.map((d) => {
+        const m = getRiskMeta(d.riskLevel);
+        const level = d.riskLevel?.toLowerCase();
+        const detected = level !== "low";
+
+        const pillText =
+          level === "low"
+            ? `✓ No ${d.name}`
+            : level === "medium"
+              ? `◐ Moderate risk`
+              : level === "high"
+                ? `↑ High risk`
+                : `⚠ Critical`;
+
+        const subtext =
+          level === "low"
+            ? "Very low chance of disease"
+            : level === "medium"
+              ? "Some risk factors detected"
+              : level === "high"
+                ? "Multiple risk factors detected"
+                : "Severe risk detected";
+
+        return (
+          <div
+            key={d.name}
+            style={{
+              padding: "0.5rem 0.6rem",
+              borderRadius: 8,
+              background: detected ? m.bg : "rgba(52,211,153,0.05)",
+              border: `1px solid ${detected ? m.border : "rgba(52,211,153,0.15)"}`,
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.3rem",
+            }}
+          >
+            {/* Disease name */}
+            {/* <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                color: "#9ca3af",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {d.name}
+            </span> */}
+
+            {/* Pill + subtext */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                flexWrap: "wrap",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 12,
+                  fontFamily: "var(--font-mono)",
+                  fontWeight: 700,
+                  color: detected ? m.color : "#34d399",
+                  background: "rgba(0,0,0,0.15)",
+                  border: `1px solid ${detected ? m.border : "rgba(52,211,153,0.25)"}`,
+                  borderRadius: 5,
+                  padding: "0.1rem 0.4rem",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                }}
+              >
+                {pillText}
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontFamily: "var(--font-mono)",
+                  color: "#6b7280",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  minWidth: 0,
+                }}
+              >
+                {subtext}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // Stat Tile
 function StatTile({
   label,
@@ -509,65 +641,77 @@ export default function Predictions() {
   const navigate = useNavigate();
 
   useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  (async () => {
-    try {
-      setLoading(true);
-      setAiThinking(true);
+    (async () => {
+      try {
+        setLoading(true);
+        setAiThinking(true);
 
-      const res = await getLatestAssessmentApi();
+        const res = await getLatestAssessmentApi();
 
-      // simulate AI delay (ONLY for UI effect)
-      setTimeout(() => {
-        if (!isMounted) return;
+        // simulate AI delay (ONLY for UI effect)
+        setTimeout(() => {
+          if (!isMounted) return;
 
-        setData(res);
-        setAiThinking(false);
-        setLoading(false);
-      }, 2000);
+          setData(res);
+          setAiThinking(false);
+          setLoading(false);
+        }, 2000);
+      } catch (err) {
+        toast.error(getErrorMessage(err));
 
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-
-      if (isMounted) {
-        setLoading(false);
-        setAiThinking(false);
+        if (isMounted) {
+          setLoading(false);
+          setAiThinking(false);
+        }
       }
-    }
-  })();
+    })();
 
-  return () => {
-    isMounted = false;
-  };
-}, []);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   if (loading) {
-  return (
-    <div className="card fade-in">
-      <div className="ai-loading">
-        <div className="ai-spinner" />
-        <div style={{ textAlign: "center" }}>
-          <div style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 18,
-            fontWeight: 700,
-            color: "#e5e7eb",
-            marginBottom: 6,
-          }}>
-            AI Diagnosing Patient Data
+    return (
+      <div className="card fade-in">
+        <div className="ai-loading">
+          <div className="ai-spinner" />
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#e5e7eb",
+                marginBottom: 6,
+              }}
+            >
+              AI Diagnosing Patient Data
+            </div>
+            <AiStepCycler />
           </div>
-          <AiStepCycler />
-        </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-          {["AI Model", "Random Forest", "Clinical Risk Assessment"].map((m) => (
-            <span key={m} className="tag tag-blue">{m}</span>
-          ))}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
+            {["AI Model", "Random Forest", "Clinical Risk Assessment"].map(
+              (m) => (
+                <span key={m} className="tag tag-blue">
+                  {m}
+                </span>
+              ),
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    );
+  }
 
   if (!data) {
     return (
@@ -575,27 +719,27 @@ export default function Predictions() {
         <div className="empty-icon">🤖</div>
         <p>No predictions yet. Submit your health data first.</p>
         <button
-        onClick={() => navigate("/patient/healthinput")}
-        style={{
-          marginTop: "1rem",
-          padding: "0.6rem 1.2rem",
-          borderRadius: 10,
-          border: "1px solid rgba(99,102,241,0.4)",
-          background: "rgba(99,102,241,0.1)",
-          color: "#818cf8",
-          fontWeight: 600,
-          cursor: "pointer",
-          transition: "all 0.2s ease",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = "rgba(99,102,241,0.2)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = "rgba(99,102,241,0.1)";
-        }}
-      >
-        ➜ Go to Health Prediction
-      </button>
+          onClick={() => navigate("/patient/healthinput")}
+          style={{
+            marginTop: "1rem",
+            padding: "0.6rem 1.2rem",
+            borderRadius: 10,
+            border: "1px solid rgba(99,102,241,0.4)",
+            background: "rgba(99,102,241,0.1)",
+            color: "#818cf8",
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(99,102,241,0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(99,102,241,0.1)";
+          }}
+        >
+          ➜ Go to Health Prediction
+        </button>
       </div>
     );
   }
@@ -681,7 +825,7 @@ export default function Predictions() {
             fontSize: 14,
             color: "#d1d5db",
             lineHeight: 1.75,
-            
+
             minWidth: 0,
             wordBreak: "break-word",
             overflowWrap: "anywhere",
@@ -775,7 +919,7 @@ export default function Predictions() {
               color={overallMeta.color}
               size={90}
             />
-            
+
             <div>
               <p
                 style={{
@@ -798,24 +942,28 @@ export default function Predictions() {
                   lineHeight: 1.1,
                 }}
               >
-                {overallMeta.label}
+                {confidence < 30
+              ? "No Heart Disease"
+              : confidence < 50
+                ? "Low risk of Heart Disease"
+                : confidence < 70
+                  ? "Moderate risk of Heart Disease"
+                  : confidence < 85
+                    ? "High risk of Heart Disease"
+                    : "Critical risk of Heart Disease"}
               </p>
               <RiskPill level={data.risk_level} />
             </div>
           </div>
 
           {/* Stat tiles */}
-          <div style={{ display: "flex", gap: "0.65rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
             <StatTile
               label="Classification Confidence"
               value={`${confidence}%`}
               color={overallMeta.color}
             />
-            <StatTile
-              label="Diseases"
-              value={String(diseases.length)}
-              color={overallMeta.color}
-            />
+            <ClassificationTile diseases={diseases} color={overallMeta.color} />
           </div>
         </div>
 
