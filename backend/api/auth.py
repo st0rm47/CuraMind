@@ -82,6 +82,13 @@ async def login(
             detail="Invalid email or password"
         )
 
+    # If the user's account is deactivated, raise an HTTP 403 Forbidden error
+    if not db_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Your account has been deactivated. Please contact the administrator."
+        )
+    
     # Verify the provided password against the stored hashed password
     if not verify_password(form.password, db_user.hashed_password):
         raise HTTPException(
